@@ -1,0 +1,132 @@
+services:
+  mysql-user:
+    image: mysql:8
+    container_name: mysql-user-db
+    environment:
+      MYSQL_ROOT_PASSWORD: Triduong123@
+      MYSQL_DATABASE: db_user_service
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql_user_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pTriduong123@"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-network
+
+  mysql-friendship:
+    image: mysql:8
+    container_name: mysql-friendship-db
+    environment:
+      MYSQL_ROOT_PASSWORD: Triduong123@
+      MYSQL_DATABASE: db_friendship_service
+    ports:
+      - "3309:3306"
+    volumes:
+      - mysql_friendship_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pTriduong123@"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-network
+  mysql-chat:
+    image: mysql:8
+    container_name: mysql-chat-db
+    environment:
+      MYSQL_ROOT_PASSWORD: Triduong123@
+      MYSQL_DATABASE: db_chat_service
+    ports:
+      - "3310:3306"
+    volumes:
+      - mysql_chat_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pTriduong123@"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-network
+  eureka-server:
+    build: ./eureka-server
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-network
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      mysql-user:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - microservices-network
+
+  friendship-service:
+    build: ./friendship-service
+    container_name: friendship-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      mysql-friendship:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - microservices-network
+
+  chat-service:
+    build: ./chat-service
+    container_name: chat-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      mysql-chat:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - microservices-network
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - microservices-network
+
+volumes:
+  mysql_user_data:
+  mysql_friendship_data:
+  mysql_chat_data:
+
+networks:
+  microservices-network:
+    driver: bridge
