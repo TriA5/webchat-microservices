@@ -30,7 +30,7 @@ import user_service.example.user_service.service.JWT.JwtService;
 import user_service.example.user_service.service.user.UserServiceImp;
 
 @RestController
-@CrossOrigin()
+@CrossOrigin(origins = "http://localhost:3000")
 @RequestMapping("/users")
 public class UserController { 
     //

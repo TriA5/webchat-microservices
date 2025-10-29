@@ -63,7 +63,40 @@ services:
       retries: 5
     networks:
       - microservices-network
-
+  mysql-ai:
+    image: mysql:8
+    container_name: mysql-ai-db
+    environment:
+      MYSQL_ROOT_PASSWORD: Triduong123@
+      MYSQL_DATABASE: db_ai_service
+    ports:
+      - "3311:3306"
+    volumes:
+      - mysql_ai_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pTriduong123@"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-network
+  mysql-poster:
+    image: mysql:8
+    container_name: mysql-poster-db
+    environment:
+      MYSQL_ROOT_PASSWORD: Triduong123@
+      MYSQL_DATABASE: db_poster_service
+    ports:
+      - "3312:3306"
+    volumes:
+      - mysql_poster_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pTriduong123@"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-network
   user-service:
     build: ./user-service
     container_name: user-service
@@ -108,7 +141,34 @@ services:
         condition: service_healthy
     networks:
       - microservices-network
-
+  ai-service:
+    build: ./ai-service
+    container_name: ai-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      mysql-ai:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - microservices-network
+  poster-service:
+    build: ./poster-service
+    container_name: poster-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      mysql-poster:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - microservices-network
   api-gateway:
     build: ./api-gateway
     container_name: api-gateway
@@ -126,6 +186,8 @@ volumes:
   mysql_user_data:
   mysql_friendship_data:
   mysql_chat_data:
+  mysql_ai_data:
+  mysql_poster_data:
 
 networks:
   microservices-network:

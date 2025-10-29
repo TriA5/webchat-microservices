@@ -1,0 +1,414 @@
+package chat_service.example.chat_service.service.chat;
+
+import chat_service.example.chat_service.client.UploadClient;
+import chat_service.example.chat_service.client.UserClient;
+import chat_service.example.chat_service.dto.ChatMessageDTO;
+import chat_service.example.chat_service.dto.GroupConversationDTO;
+import chat_service.example.chat_service.dto.GroupMemberDTO;
+import chat_service.example.chat_service.entity.GroupConversation;
+import chat_service.example.chat_service.entity.GroupMember;
+import chat_service.example.chat_service.entity.Message;
+import chat_service.example.chat_service.repository.GroupConversationRepository;
+import chat_service.example.chat_service.repository.GroupMemberRepository;
+import chat_service.example.chat_service.repository.MessageRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class GroupChatService {
+    private static final Logger log = LoggerFactory.getLogger(GroupChatService.class);
+    private final GroupConversationRepository groupConversationRepository;
+    private final GroupMemberRepository groupMemberRepository;
+    private final MessageRepository messageRepository;
+    private final UploadClient uploadClient;
+    private final UserClient userClient;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    public GroupConversation createGroup(UUID creatorId, String groupName, List<UUID> initialMemberIds) {
+        GroupConversation group = new GroupConversation();
+        group.setName(groupName);
+        group.setCreatedBy(creatorId);
+        GroupConversation savedGroup = groupConversationRepository.save(group);
+
+        // Thêm creator là ADMIN
+        addMember(savedGroup, creatorId, "ADMIN");
+
+        // Thêm initial members là MEMBER
+        for (UUID memberId : initialMemberIds) {
+            addMember(savedGroup, memberId, "MEMBER");
+        }
+
+        // Notify tất cả thành viên về group mới
+        GroupConversationDTO dto = mapToDTO(savedGroup);
+        for (GroupMember gm : groupMemberRepository.findByGroup(savedGroup)) {
+            messagingTemplate.convertAndSend("/topic/groups/" + gm.getUser(), dto);
+        }
+
+        return savedGroup;
+    }
+
+    public void joinGroup(UUID groupId, UUID userId) {
+        GroupConversation group = groupConversationRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Nhóm không tồn tại"));
+        if (groupMemberRepository.findByGroupAndUser(group, userId).isPresent()) {
+            throw new RuntimeException("Đã là thành viên của nhóm");
+        }
+        addMember(group, userId, "MEMBER");
+
+        // Notify nhóm về thành viên mới
+        String username = "User";
+        try {
+            var u = userClient.getUserById(userId);
+            if (u != null) username = u.getUsername();
+        } catch (Exception ignored) {}
+        messagingTemplate.convertAndSend("/topic/group/" + groupId, "User " + username + " đã tham gia");
+    }
+
+    public ChatMessageDTO sendGroupMessage(UUID groupId, UUID senderId, String content) {
+    try {
+        GroupConversation group = groupConversationRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Nhóm không tồn tại"));
+
+        groupMemberRepository.findByGroupAndUser(group, senderId)
+                .orElseThrow(() -> new RuntimeException("Không phải thành viên của nhóm"));
+
+        Message m = new Message();
+        m.setGroupConversation(group);
+        m.setSender(senderId);
+        m.setContent(content);
+        m.setMessageType("TEXT");
+        Message saved = messageRepository.save(m);
+
+        ChatMessageDTO dto = new ChatMessageDTO(
+                saved.getId(),
+                null,
+                groupId,
+                senderId,
+                null,
+                saved.getContent(),
+                saved.getMessageType(),
+                null,
+                null,
+                null,
+                null,
+                saved.getCreatedAt()
+        );
+        messagingTemplate.convertAndSend("/topic/group/" + groupId, dto);
+        return dto;
+    } catch (Exception e) {
+        System.err.println("Lỗi khi gửi tin nhắn nhóm: " + e.getMessage());
+        e.printStackTrace();
+        throw e; // Ném lại để debug
+    }
+}
+    public List<ChatMessageDTO> getGroupMessages(UUID groupId) {
+        GroupConversation group = groupConversationRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Nhóm không tồn tại"));
+        return messageRepository.findByGroupConversationOrderByCreatedAtAsc(group)
+                .stream()
+                .map(m -> {
+                    String avatar = null;
+                    try {
+                        var u = userClient.getUserById(m.getSender());
+                        if (u != null) avatar = u.getAvatar();
+                    } catch (Exception ignored) {}
+
+                    return new ChatMessageDTO(
+                        m.getId(),
+                        null,
+                        groupId,
+                        m.getSender(),
+                        avatar,
+                        m.getContent(),
+                        m.getMessageType(),
+                        m.getImageUrl(),
+                        m.getFileUrl(),
+                        m.getFileName(),
+                        m.getFileSize(),
+                        m.getCreatedAt()
+                    );
+                })
+                .collect(Collectors.toList());
+    }
+
+    public List<GroupConversationDTO> getGroupsForUser(UUID userId) {
+    return groupMemberRepository.findByUser(userId)
+        .stream()
+        .map(gm -> mapToDTO(gm.getGroup()))
+        .collect(Collectors.toList());
+    }
+
+    private void addMember(GroupConversation group, UUID userId, String role) {
+        GroupMember gm = new GroupMember();
+        gm.setGroup(group);
+        gm.setUser(userId);
+        gm.setRole(role);
+        groupMemberRepository.save(gm);
+    }
+
+    public void removeMember(UUID groupId, UUID userId, UUID requesterId) {
+    GroupConversation group = groupConversationRepository.findById(groupId)
+        .orElseThrow(() -> new RuntimeException("Nhóm không tồn tại"));
+
+    // Kiểm tra quyền: phải là ADMIN hoặc chính user đó (tự rời nhóm)
+    GroupMember requesterMember = groupMemberRepository.findByGroupAndUser(group, requesterId)
+        .orElseThrow(() -> new RuntimeException("Bạn không phải thành viên của nhóm"));
+        
+    if (!requesterId.equals(userId) && !"ADMIN".equals(requesterMember.getRole())) {
+        throw new RuntimeException("Chỉ ADMIN mới có quyền xóa thành viên");
+    }
+
+    GroupMember memberToRemove = groupMemberRepository.findByGroupAndUser(group, userId)
+        .orElseThrow(() -> new RuntimeException("Người dùng không phải thành viên của nhóm"));
+
+    // Không cho phép xóa creator
+    if (group.getCreatedBy().equals(userId)) {
+        throw new RuntimeException("Không thể xóa người tạo nhóm");
+    }
+
+    groupMemberRepository.delete(memberToRemove);
+
+    // Broadcast notification
+    String username = "User";
+    try {
+        var u = userClient.getUserById(userId);
+        if (u != null) username = u.getUsername();
+    } catch (Exception ignored) {}
+
+    String message = username + (requesterId.equals(userId) ? " đã rời khỏi nhóm" : " đã bị xóa khỏi nhóm");
+    messagingTemplate.convertAndSend("/topic/group/" + groupId + "/member-removed", 
+        new MemberRemovedNotification(groupId, userId, message));
+    }
+
+    public List<GroupMemberDTO> getGroupMembers(UUID groupId) {
+        GroupConversation group = groupConversationRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Nhóm không tồn tại"));
+        
+        List<GroupMember> members = groupMemberRepository.findByGroup(group);
+        return members.stream()
+                .map(gm -> {
+                    String username = "User";
+                    String avatar = null;
+                    try {
+                        var u = userClient.getUserById(gm.getUser());
+                        if (u != null) {
+                            username = u.getUsername();
+                            avatar = u.getAvatar();
+                        }
+                    } catch (Exception ignored) {}
+
+                    return new GroupMemberDTO(
+                            gm.getId(),
+                            gm.getUser(),
+                            username,
+                            avatar,
+                            gm.getRole()
+                    );
+                })
+                .collect(Collectors.toList());
+    }
+
+    public void deleteGroup(UUID groupId, UUID requesterId) {
+        GroupConversation group = groupConversationRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Nhóm không tồn tại"));
+        
+        // Chỉ creator mới có thể xóa nhóm
+        if (!group.getCreatedBy().equals(requesterId)) {
+            throw new RuntimeException("Chỉ người tạo nhóm mới có thể xóa nhóm");
+        }
+
+        // Lấy tất cả thành viên trước khi xóa
+        List<GroupMember> members = groupMemberRepository.findByGroup(group);
+        List<UUID> memberIds = members.stream()
+                .map(GroupMember::getUser)
+                .collect(Collectors.toList());
+
+        // Xóa tất cả tin nhắn trong nhóm
+        List<Message> messages = messageRepository.findByGroupConversationOrderByCreatedAtAsc(group);
+        messageRepository.deleteAll(messages);
+
+        // Xóa tất cả thành viên
+        groupMemberRepository.deleteAll(members);
+
+        // Xóa nhóm
+        groupConversationRepository.delete(group);
+
+        // Thông báo cho tất cả thành viên về việc nhóm bị xóa
+        GroupDeletedNotification notification = new GroupDeletedNotification(
+                groupId,
+                group.getName(),
+                "Nhóm đã bị xóa bởi người tạo"
+        );
+        
+        for (UUID memberId : memberIds) {
+            messagingTemplate.convertAndSend("/topic/groups/" + memberId, notification);
+        }
+    }
+
+    private GroupConversationDTO mapToDTO(GroupConversation group) {
+        return new GroupConversationDTO(group.getId(), group.getName(), group.getCreatedBy());
+    }
+
+    // DTO for notification
+    public static class MemberRemovedNotification {
+        public UUID groupId;
+        public UUID userId;
+        public String message;
+        public MemberRemovedNotification(UUID groupId, UUID userId, String message) {
+            this.groupId = groupId;
+            this.userId = userId;
+            this.message = message;
+        }
+    }
+
+    public static class GroupDeletedNotification {
+        public UUID groupId;
+        public String groupName;
+        public String message;
+        public GroupDeletedNotification(UUID groupId, String groupName, String message) {
+            this.groupId = groupId;
+            this.groupName = groupName;
+            this.message = message;
+        }
+    }
+
+    public ChatMessageDTO sendGroupImageMessage(UUID groupId, UUID senderId, MultipartFile imageFile) {
+        try {
+            GroupConversation group = groupConversationRepository.findById(groupId)
+                    .orElseThrow(() -> new RuntimeException("Nhóm không tồn tại"));
+
+            groupMemberRepository.findByGroupAndUser(group, senderId)
+                    .orElseThrow(() -> new RuntimeException("Không phải thành viên của nhóm"));
+
+            // Diagnostic logging
+            if (imageFile != null) {
+                log.info("sendGroupImageMessage: groupId={} senderId={} filename={} size={} contentType={}",
+                        groupId, senderId, imageFile.getOriginalFilename(), imageFile.getSize(), imageFile.getContentType());
+            } else {
+                log.warn("sendGroupImageMessage called with null imageFile: groupId={} senderId={}", groupId, senderId);
+            }
+
+            // Upload image via user-service (base64)
+            String base64 = java.util.Base64.getEncoder().encodeToString(imageFile.getBytes());
+            String dataUri = "data:" + (imageFile.getContentType() == null ? "image/png" : imageFile.getContentType()) + ";base64," + base64;
+            java.util.Map<String, String> body = java.util.Map.of("name", "group_chat_" + UUID.randomUUID(), "data", dataUri);
+            String imageUrl = uploadClient.uploadBase64(body);
+            log.info("uploadClient returned imageUrl={}", imageUrl);
+
+            // Create message
+            Message m = new Message();
+            m.setGroupConversation(group);
+            m.setSender(senderId);
+            m.setContent(""); // Empty content for image messages
+            m.setMessageType("IMAGE");
+            m.setImageUrl(imageUrl);
+            Message saved = messageRepository.save(m);
+
+            // Fetch avatar (best-effort)
+            String avatar = null;
+            try {
+                var u = userClient.getUserById(senderId);
+                if (u != null) avatar = u.getAvatar();
+            } catch (Exception ignored) {}
+
+            // Create DTO
+            ChatMessageDTO dto = new ChatMessageDTO(
+                    saved.getId(),
+                    null,
+                    groupId,
+                    senderId,
+                    avatar,
+                    saved.getContent(),
+                    saved.getMessageType(),
+                    saved.getImageUrl(),
+                    null, // fileUrl
+                    null, // fileName
+                    null, // fileSize
+                    saved.getCreatedAt()
+            );
+
+            // Publish to group topic
+            messagingTemplate.convertAndSend("/topic/group/" + groupId, dto);
+            return dto;
+        } catch (Exception e) {
+            log.error("Failed to send group image message for groupId={} senderId={}: {}", groupId, senderId, e.toString(), e);
+            throw new RuntimeException("Failed to send group image message: " + e.getMessage(), e);
+        }
+    }
+
+    public ChatMessageDTO sendGroupFileMessage(UUID groupId, UUID senderId, MultipartFile file) {
+        try {
+            GroupConversation group = groupConversationRepository.findById(groupId)
+                    .orElseThrow(() -> new RuntimeException("Nhóm không tồn tại"));
+
+            groupMemberRepository.findByGroupAndUser(group, senderId)
+                    .orElseThrow(() -> new RuntimeException("Không phải thành viên của nhóm"));
+
+            // Diagnostic logging
+            if (file != null) {
+                log.info("sendGroupFileMessage: groupId={} senderId={} filename={} size={} contentType={}",
+                        groupId, senderId, file.getOriginalFilename(), file.getSize(), file.getContentType());
+            } else {
+                log.warn("sendGroupFileMessage called with null file: groupId={} senderId={}", groupId, senderId);
+            }
+
+            // Upload file via user-service (base64)
+            String base64 = java.util.Base64.getEncoder().encodeToString(file.getBytes());
+            String dataUri = "data:" + (file.getContentType() == null ? "application/octet-stream" : file.getContentType()) + ";base64," + base64;
+            java.util.Map<String, String> body = java.util.Map.of("name", "group_file_" + UUID.randomUUID(), "data", dataUri);
+            String fileUrl = uploadClient.uploadBase64(body);
+            log.info("uploadClient returned fileUrl={}", fileUrl);
+
+            // Create message
+            Message m = new Message();
+            m.setGroupConversation(group);
+            m.setSender(senderId);
+            m.setContent(""); // Empty content for file messages
+            m.setMessageType("FILE");
+            m.setFileUrl(fileUrl);
+            m.setFileName(file.getOriginalFilename());
+            m.setFileSize(file.getSize());
+            Message saved = messageRepository.save(m);
+
+            // Fetch avatar (best-effort)
+            String avatar = null;
+            try {
+                var u = userClient.getUserById(senderId);
+                if (u != null) avatar = u.getAvatar();
+            } catch (Exception ignored) {}
+
+            // Create DTO
+            ChatMessageDTO dto = new ChatMessageDTO(
+                    saved.getId(),
+                    null,
+                    groupId,
+                    senderId,
+                    avatar,
+                    saved.getContent(),
+                    saved.getMessageType(),
+                    null, // imageUrl
+                    saved.getFileUrl(),
+                    saved.getFileName(),
+                    saved.getFileSize(),
+                    saved.getCreatedAt()
+            );
+
+            // Publish to group topic
+            messagingTemplate.convertAndSend("/topic/group/" + groupId, dto);
+            return dto;
+        } catch (Exception e) {
+            log.error("Failed to send group file message for groupId={} senderId={}: {}", groupId, senderId, e.toString(), e);
+            throw new RuntimeException("Failed to send group file message: " + e.getMessage(), e);
+        }
+    }
+}

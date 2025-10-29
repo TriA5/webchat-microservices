@@ -11,10 +11,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import chat_service.example.chat_service.entity.Conversation;
 import chat_service.example.chat_service.repository.ConversationRepository;
-
+import org.springframework.web.bind.annotation.CrossOrigin;
 import java.util.Map;
 
 @RestController
+// @CrossOrigin(origins = "http://localhost:3000")
 @RequestMapping("/conversations")
 public class ConversationController {
 

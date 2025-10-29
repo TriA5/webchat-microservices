@@ -20,7 +20,7 @@ import friendship_service.example.friendship_service.entity.Friendship;
 import friendship_service.example.friendship_service.service.friendship.FriendshipService;
 
 @RestController
-@CrossOrigin()
+@CrossOrigin(origins = "http://localhost:3000")
 @RequestMapping("/friendships")
 public class FriendShipController {
     

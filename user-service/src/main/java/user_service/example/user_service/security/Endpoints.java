@@ -9,6 +9,7 @@ public class Endpoints {
         "/users/search/findByIdUser?IdUser={IdUser}",
     }; 
     public static final String[] PUBLIC_POST = {
+        "/uploads/**",
         "/users/register",
         "/users/authenticate",
     };
@@ -19,7 +20,8 @@ public class Endpoints {
         "/users/change-password",
     };
     public static final String[] PUBLIC_DELETE = {
-        "/admin/**"
+        "/admin/**",
+        "/uploads/**",
     };
     public static final String[] ADMIN_ENDPOINT = {
         "/admin/**"

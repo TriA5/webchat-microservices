@@ -13,6 +13,10 @@ spring:
 
   cloud:
     gateway:
+      # websocket:
+      #   enabled: true
+      globalcors:
+        add-to-simple-url-handler-mapping: true
       routes:
         - id: user-service
           uri: lb://user-service
@@ -20,28 +24,75 @@ spring:
             - Path=/api/users/**
           filters:
             - StripPrefix=1
+
         - id: friendship-service
           uri: lb://friendship-service
           predicates:
             - Path=/api/friendships/**
           filters:
             - StripPrefix=1
-        - id: chat-service
+
+        - id: chat-chats
           uri: lb://chat-service
           predicates:
             - Path=/api/chats/**
           filters:
             - StripPrefix=1
-        - id: auth-service
-          uri: lb://auth-service
+
+        - id: chat-groups
+          uri: lb://chat-service
           predicates:
-            - Path=/api/auth/**
+            - Path=/api/groups/**
+          filters:
+            - StripPrefix=1
+
+        - id: chat-video-call
+          uri: lb://chat-service
+          predicates:
+            - Path=/api/video-call/**
+          filters:
+            - StripPrefix=1
+        
+        - id: chat-group-video-call
+          uri: lb://chat-service
+          predicates:
+            - Path=/api/group-video-call/**
+          filters:
+            - StripPrefix=1
+            
+        - id: chat-ws
+          uri: lb://chat-service
+          predicates:
+            - Path=/api/ws/**
+          filters:
+            - StripPrefix=1
+        # Ai
+        - id: ai-service
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/gemini/**
+          filters:
+            - StripPrefix=1
+        # Poster-service
+        - id: poster-service
+          uri: lb://poster-service
+          predicates:
+            - Path=/api/posters/**
           filters:
             - StripPrefix=1
       discovery:
         locator:
           enabled: true
           lower-case-service-id: true
+
+      # Bật CORS cho React
+      # globalcors:
+      #   corsConfigurations:
+      #     '[/**]':
+      #       allowedOrigins: "http://localhost:3000"
+      #       allowedHeaders: "*"
+      #       allowedMethods: GET,POST,PUT,DELETE,OPTIONS
+      #       allowCredentials: true
 
 eureka:
   client:
@@ -62,6 +113,7 @@ management:
     health:
       show-details: always
 
+
 ---
 spring:
   config:
@@ -73,23 +125,72 @@ spring:
 
   cloud:
     gateway:
+      # websocket:
+      #   enabled: true
+      globalcors:
+        add-to-simple-url-handler-mapping: true
       routes:
+        # User-service
         - id: user-service
           uri: lb://user-service
           predicates:
             - Path=/api/users/**
           filters:
             - StripPrefix=1
+        # Friendship-service
         - id: friendship-service
           uri: lb://friendship-service
           predicates:
             - Path=/api/friendships/**
           filters:
             - StripPrefix=1
-        - id: chat-service
+        # chat-service
+        - id: chat-chats
           uri: lb://chat-service
           predicates:
             - Path=/api/chats/**
+          filters:
+            - StripPrefix=1
+
+        - id: chat-groups
+          uri: lb://chat-service
+          predicates:
+            - Path=/api/groups/**
+          filters:
+            - StripPrefix=1
+
+        - id: chat-video-call
+          uri: lb://chat-service
+          predicates:
+            - Path=/api/video-call/**
+          filters:
+            - StripPrefix=1
+
+        - id: chat-group-video-call
+          uri: lb://chat-service
+          predicates:
+            - Path=/api/group-video-call/**
+          filters:
+            - StripPrefix=1
+            
+        - id: chat-ws
+          uri: lb://chat-service
+          predicates:
+            - Path=/api/ws/**
+          filters:
+            - StripPrefix=1
+        # Ai
+        - id: ai-service
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/gemini/**
+          filters:
+            - StripPrefix=1
+        # Poster-service
+        - id: poster-service
+          uri: lb://poster-service
+          predicates:
+            - Path=/api/posters/**
           filters:
             - StripPrefix=1
       discovery:
@@ -106,6 +207,10 @@ eureka:
 
 server:
   port: 8080
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
 
 management:
   endpoints:
