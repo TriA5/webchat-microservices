@@ -6,22 +6,33 @@ public class Endpoints {
     public static final String[] PUBLIC_GET = {
         "/admin/**",
         // "/gemini/**",
-        "/posters/**"
+        "/posters/**",
+        "/like-posters/**",
+        "/comments/**",
+        "/notifications/**"
     };
     
     public static final String[] PUBLIC_POST = {
         "/admin/**",
-        "/posters/**"
+        "/posters/**",
+        "/like-posters/**",
+        "/comments/**",
+        "/notifications/**"
     };
     
     public static final String[] PUBLIC_PUT = {
         "/admin/**",
-        "/posters/**"
+        "/posters/**",
+        "/comments/**",
+        "/notifications/**"
     };
     
     public static final String[] PUBLIC_DELETE = {
         "/admin/**",
-        "/posters/**"
+        "/posters/**",
+        "/like-posters/**",
+        "/comments/**",
+        "/notifications/**"
     };
     
     // Admin endpoints - cần role ADMIN

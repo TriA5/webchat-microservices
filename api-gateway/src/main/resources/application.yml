@@ -80,6 +80,27 @@ spring:
             - Path=/api/posters/**
           filters:
             - StripPrefix=1
+
+        - id: like-poster
+          uri: lb://poster-service
+          predicates:
+            - Path=/api/like-posters/**
+          filters:
+            - StripPrefix=1
+
+        - id: comment-poster
+          uri: lb://poster-service
+          predicates:
+            - Path=/api/comments/**
+          filters:
+            - StripPrefix=1
+
+        - id: notification-poster
+          uri: lb://poster-service
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - StripPrefix=1
       discovery:
         locator:
           enabled: true
@@ -193,6 +214,28 @@ spring:
             - Path=/api/posters/**
           filters:
             - StripPrefix=1
+
+        - id: like-poster
+          uri: lb://poster-service
+          predicates:
+            - Path=/api/like-posters/**
+          filters:
+            - StripPrefix=1
+
+        - id: comment-poster
+          uri: lb://poster-service
+          predicates:
+            - Path=/api/comments/**
+          filters:
+            - StripPrefix=1
+
+        - id: notification-poster
+          uri: lb://poster-service
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - StripPrefix=1
+        
       discovery:
         locator:
           enabled: true
