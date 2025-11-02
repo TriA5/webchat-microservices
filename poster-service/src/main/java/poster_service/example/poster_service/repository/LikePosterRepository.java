@@ -4,6 +4,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -19,5 +20,9 @@ public interface LikePosterRepository extends JpaRepository<LikePoster, UUID> {
 
     @Query("SELECT COUNT(lp) FROM LikePoster lp WHERE lp.poster.idPoster = :posterId")
     long countLikesByPosterId(@Param("posterId") UUID posterId);
+
+    @Modifying
+    @Query("DELETE FROM LikePoster lp WHERE lp.poster.idPoster = :posterId")
+    void deleteAllByPosterId(@Param("posterId") UUID posterId);
     
 }

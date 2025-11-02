@@ -19,7 +19,9 @@ import poster_service.example.poster_service.client.UploadClient;
 import poster_service.example.poster_service.entity.ImagePoster;
 import poster_service.example.poster_service.entity.Poster;
 import poster_service.example.poster_service.entity.PrivacyStatusPoster;
+import poster_service.example.poster_service.repository.CommentPosterRepository;
 import poster_service.example.poster_service.repository.ImagePosterRepository;
+import poster_service.example.poster_service.repository.LikePosterRepository;
 import poster_service.example.poster_service.repository.PosterRepository;
 import poster_service.example.poster_service.repository.PrivacyStatusPosterRepository;
 
@@ -40,6 +42,12 @@ private PosterRepository posterRepository;
 
 @Autowired
 private ImagePosterRepository imagePosterRepository;
+
+@Autowired
+private LikePosterRepository likePosterRepository;
+
+@Autowired
+private CommentPosterRepository commentPosterRepository;
 
 @Autowired
 private poster_service.example.poster_service.client.FriendshipClient friendshipClient;
@@ -163,6 +171,10 @@ public ResponseEntity<?> delete(UUID posterId, UUID userId) {
 try {
     Poster poster = posterRepository.findById(posterId).orElseThrow(() -> new RuntimeException("Poster không tồn tại với ID: " + posterId));
     if (!poster.getUser().equals(userId)) return ResponseEntity.status(403).body("❌ Bạn không có quyền xóa poster này!");
+
+    // Xóa các quan hệ phụ thuộc trước khi xóa poster để tránh vi phạm ràng buộc khóa ngoại
+    commentPosterRepository.deleteAllByPosterId(posterId);
+    likePosterRepository.deleteAllByPosterId(posterId);
 
     List<ImagePoster> images = imagePosterRepository.findByPoster(poster);
     for (ImagePoster image : images) {

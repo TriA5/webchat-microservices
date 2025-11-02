@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -26,4 +27,8 @@ public interface CommentPosterRepository extends JpaRepository<CommentPoster, UU
     // Đếm tổng số comment và replies của một poster
     @Query("SELECT COUNT(c) FROM CommentPoster c WHERE c.poster.idPoster = :posterId")
     long countTotalCommentsByPosterId(@Param("posterId") UUID posterId);
+
+    @Modifying
+    @Query("DELETE FROM CommentPoster c WHERE c.poster.idPoster = :posterId")
+    void deleteAllByPosterId(@Param("posterId") UUID posterId);
 }
