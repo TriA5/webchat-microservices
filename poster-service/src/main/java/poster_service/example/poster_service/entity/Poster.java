@@ -38,9 +38,15 @@ public class Poster {
     // 🔹 Quan hệ 1-nhiều với Image
     @OneToMany(mappedBy = "poster", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<ImagePoster> images;
+    
+    // 🔹 Quan hệ 1-nhiều với Video
+    @OneToMany(mappedBy = "poster", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<VideoPoster> videos;
+    
     // 🔹 Quan hệ 1-nhiều với LikePoster
     @OneToMany(mappedBy = "poster", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<LikePoster> likes;
+    
     // 🔹 Quan hệ 1-nhiều với CommentPoster
     @OneToMany(mappedBy = "poster", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<CommentPoster> comments;

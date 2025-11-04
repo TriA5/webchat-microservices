@@ -19,12 +19,27 @@ public interface UploadClient {
     // Upload multipart file
     @PostMapping(value = "/uploads/file", consumes = "multipart/form-data")
     String uploadFile(
-        @RequestPart("file") MultipartFile file,
-        @RequestPart(value = "name", required = false) String name
+        @RequestParam("file") MultipartFile file,
+        @RequestParam(value = "name", required = false) String name
+    );
+
+    // Upload video base64
+    @PostMapping("/uploads/video/base64")
+    String uploadVideoBase64(@RequestBody Map<String, String> body);
+
+    // Upload video multipart
+    @PostMapping(value = "/uploads/video/file", consumes = "multipart/form-data")
+    String uploadVideoFile(
+        @RequestParam("file") MultipartFile file,
+        @RequestParam(value = "name", required = false) String name
     );
 
     // Delete uploaded image by full URL (calls user-service DELETE /uploads/delete?imageUrl=...)
     @DeleteMapping("/uploads/delete")
     String deleteByImageUrl(@RequestParam("imageUrl") String imageUrl);
+    
+    // Delete uploaded video by full URL
+    @DeleteMapping("/uploads/video/delete")
+    String deleteByVideoUrl(@RequestParam("videoUrl") String videoUrl);
 }
  

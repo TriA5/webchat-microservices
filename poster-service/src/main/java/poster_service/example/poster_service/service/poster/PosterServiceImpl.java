@@ -14,19 +14,22 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.multipart.MultipartFile;
 
 import poster_service.example.poster_service.client.UploadClient;
+import poster_service.example.poster_service.util.Base64ToMultipartFileConverter;
 import poster_service.example.poster_service.entity.ImagePoster;
 import poster_service.example.poster_service.entity.Poster;
 import poster_service.example.poster_service.entity.PrivacyStatusPoster;
+import poster_service.example.poster_service.entity.VideoPoster;
 import poster_service.example.poster_service.repository.CommentPosterRepository;
 import poster_service.example.poster_service.repository.ImagePosterRepository;
 import poster_service.example.poster_service.repository.LikePosterRepository;
 import poster_service.example.poster_service.repository.PosterRepository;
 import poster_service.example.poster_service.repository.PrivacyStatusPosterRepository;
+import poster_service.example.poster_service.repository.VideoPosterRepository;
 
 @Service
-@Transactional
 public class PosterServiceImpl implements PosterService {
 
 private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PosterServiceImpl.class);
@@ -42,6 +45,9 @@ private PosterRepository posterRepository;
 
 @Autowired
 private ImagePosterRepository imagePosterRepository;
+
+@Autowired
+private VideoPosterRepository videoPosterRepository;
 
 @Autowired
 private LikePosterRepository likePosterRepository;
@@ -62,15 +68,50 @@ this.objectMapper = objectMapper;
 }
 
 @Override
+@Transactional
 public ResponseEntity<?> save(JsonNode posterJson, UUID userId) {
 try {
-    var userDto = userClient.getUserById(userId);
-    if (userDto == null) throw new RuntimeException("User không tồn tại với ID: " + userId);
+    log.info("📝 Creating poster with data: {}", posterJson);
+    
+    // Validate required fields
+    if (posterJson == null) {
+        log.error("❌ posterJson is null");
+        return ResponseEntity.badRequest().body("❌ Dữ liệu poster không được để trống");
+    }
+    
+    if (userId == null) {
+        log.error("❌ userId is null");
+        return ResponseEntity.badRequest().body("❌ User ID không được để trống");
+    }
+    
+    if (!posterJson.has("content") || posterJson.get("content").asText().trim().isEmpty()) {
+        log.error("❌ Content is empty");
+        return ResponseEntity.badRequest().body("❌ Nội dung poster không được để trống");
+    }
+    
+    if (!posterJson.has("privacyStatusName")) {
+        log.error("❌ privacyStatusName is missing");
+        return ResponseEntity.badRequest().body("❌ Trạng thái riêng tư không được để trống");
+    }
 
+    // Check user exists
+    var userDto = userClient.getUserById(userId);
+    if (userDto == null) {
+        log.error("❌ User not found: {}", userId);
+        throw new RuntimeException("User không tồn tại với ID: " + userId);
+    }
+    log.info("✅ User found: {}", userDto.getUsername());
+
+    // Check privacy status exists
     String privacyStatusName = posterJson.get("privacyStatusName").asText();
     PrivacyStatusPoster privacyStatus = privacyStatusRepository.findByName(privacyStatusName)
-            .orElseThrow(() -> new RuntimeException("Privacy status không tồn tại: " + privacyStatusName));
+            .orElseThrow(() -> {
+                log.error("❌ Privacy status not found: {}", privacyStatusName);
+                return new RuntimeException("Privacy status không tồn tại: " + privacyStatusName);
+            });
+    log.info("✅ Privacy status found: {}", privacyStatus.getName());
 
+    // Create poster
     Poster poster = new Poster();
     poster.setContent(posterJson.get("content").asText());
     poster.setUser(userDto.getIdUser());
@@ -79,21 +120,34 @@ try {
     poster.setUpdatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
 
     Poster newPoster = posterRepository.save(poster);
+    log.info("✅ Poster created with ID: {}", newPoster.getIdPoster());
 
+    // Process images
     if (posterJson.has("imageUrls") && posterJson.get("imageUrls").isArray()) {
+        log.info("📷 Processing {} images", posterJson.get("imageUrls").size());
         List<String> imageList = objectMapper.readValue(posterJson.get("imageUrls").traverse(), new TypeReference<List<String>>() {});
         for (int i = 0; i < imageList.size(); i++) {
             String item = imageList.get(i);
             if (item != null && item.startsWith("data:")) {
                 var body = java.util.Map.of("name", "poster_" + newPoster.getIdPoster() + "_" + i, "data", item);
-                String imageUrl = uploadClient.uploadBase64(body);
+                String imageUrl = null;
+                try {
+                    imageUrl = uploadClient.uploadBase64(body);
+                } catch (Exception ex) {
+                    log.error("❌ Failed to upload image {}: {}", i, ex.getMessage(), ex);
+                }
 
-                ImagePoster imagePoster = new ImagePoster();
-                imagePoster.setPoster(newPoster);
-                imagePoster.setUrl(imageUrl);
-                imagePoster.setCreatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
-                imagePoster.setUpdatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
-                imagePosterRepository.save(imagePoster);
+                if (imageUrl != null && !imageUrl.isBlank()) {
+                    ImagePoster imagePoster = new ImagePoster();
+                    imagePoster.setPoster(newPoster);
+                    imagePoster.setUrl(imageUrl);
+                    imagePoster.setCreatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
+                    imagePoster.setUpdatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
+                    imagePosterRepository.save(imagePoster);
+                    log.info("✅ Image uploaded successfully: {}", imageUrl);
+                } else {
+                    log.error("❌ Upload returned null/empty URL for image {}", i);
+                }
             } else if (item != null && !item.isBlank()) {
                 ImagePoster imagePoster = new ImagePoster();
                 imagePoster.setPoster(newPoster);
@@ -105,14 +159,56 @@ try {
         }
     }
 
+    // 🎬 Xử lý video upload
+    if (posterJson.has("videoUrls") && posterJson.get("videoUrls").isArray()) {
+        log.info("🎬 Processing {} videos", posterJson.get("videoUrls").size());
+        List<String> videoList = objectMapper.readValue(posterJson.get("videoUrls").traverse(), new TypeReference<List<String>>() {});
+        for (int i = 0; i < videoList.size(); i++) {
+            String item = videoList.get(i);
+            if (item != null && item.startsWith("data:video")) {
+                try {
+                    MultipartFile file = Base64ToMultipartFileConverter.convert(item);
+                    String videoUrl = uploadClient.uploadVideoFile(file, "poster_video_" + newPoster.getIdPoster() + "_" + i);
+
+                    if (videoUrl != null && !videoUrl.isBlank()) {
+                        VideoPoster videoPoster = new VideoPoster();
+                        videoPoster.setPoster(newPoster);
+                        videoPoster.setUrl(videoUrl);
+                        videoPoster.setCreatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
+                        videoPoster.setUpdatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
+                        videoPosterRepository.save(videoPoster);
+                        log.info("✅ Video uploaded successfully: {}", videoUrl);
+                    } else {
+                        log.error("❌ Upload returned null URL for video {}", i);
+                    }
+                } catch (Exception e) {
+                    log.error("❌ Failed to upload video {}: {}", i, e.getMessage());
+                }
+            } else if (item != null && !item.isBlank()) {
+                VideoPoster videoPoster = new VideoPoster();
+                videoPoster.setPoster(newPoster);
+                videoPoster.setUrl(item);
+                videoPoster.setCreatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
+                videoPoster.setUpdatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
+                videoPosterRepository.save(videoPoster);
+            }
+        }
+    }
+
+    log.info("🎉 Poster created successfully!");
     return ResponseEntity.ok("✅ Tạo poster thành công!");
+} catch (RuntimeException e) {
+    log.error("❌ Runtime error: {}", e.getMessage(), e);
+    return ResponseEntity.badRequest().body("❌ " + e.getMessage());
 } catch (Exception e) {
+    log.error("❌ Unexpected error: {}", e.getMessage(), e);
     e.printStackTrace();
-    return ResponseEntity.badRequest().body("❌ Lỗi: " + e.getMessage());
+    return ResponseEntity.status(500).body("❌ Lỗi hệ thống: " + e.getMessage());
 }
 }
 
 @Override
+@Transactional
 public ResponseEntity<?> update(UUID posterId, JsonNode posterJson, UUID userId) {
 try {
     Poster poster = posterRepository.findById(posterId).orElseThrow(() -> new RuntimeException("Poster không tồn tại với ID: " + posterId));
@@ -144,14 +240,62 @@ try {
         for (String imageUrl : imageList) {
             if (imageUrl != null && imageUrl.startsWith("data:")) {
                 var body = java.util.Map.of("name", "poster_" + poster.getIdPoster() + "_" + System.currentTimeMillis(), "data", imageUrl);
-                String uploadedUrl = uploadClient.uploadBase64(body);
+                String uploadedUrl = null;
+                try {
+                    uploadedUrl = uploadClient.uploadBase64(body);
+                } catch (Exception ex) {
+                    log.error("❌ Failed to upload image during update: {}", ex.getMessage(), ex);
+                }
 
-                ImagePoster imagePoster = new ImagePoster();
-                imagePoster.setPoster(poster);
-                imagePoster.setUrl(uploadedUrl);
-                imagePoster.setCreatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
-                imagePoster.setUpdatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
-                imagePosterRepository.save(imagePoster);
+                if (uploadedUrl != null && !uploadedUrl.isBlank()) {
+                    ImagePoster imagePoster = new ImagePoster();
+                    imagePoster.setPoster(poster);
+                    imagePoster.setUrl(uploadedUrl);
+                    imagePoster.setCreatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
+                    imagePoster.setUpdatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
+                    imagePosterRepository.save(imagePoster);
+                    log.info("✅ Image updated successfully: {}", uploadedUrl);
+                } else {
+                    log.error("❌ Upload returned null/empty URL when updating image for poster {}", poster.getIdPoster());
+                }
+            }
+        }
+    }
+
+    // 🎬 Xử lý cập nhật video
+    if (posterJson.has("videoUrls") && posterJson.get("videoUrls").isArray()) {
+        List<String> videoList = objectMapper.readValue(posterJson.get("videoUrls").traverse(), new TypeReference<List<String>>() {});
+        List<VideoPoster> oldVideos = videoPosterRepository.findByPoster(poster);
+        List<VideoPoster> videosToDelete = oldVideos.stream().filter(vid -> !videoList.contains(vid.getUrl())).collect(java.util.stream.Collectors.toList());
+
+        for (VideoPoster videoToDelete : videosToDelete) {
+            try {
+                videoPosterRepository.delete(videoToDelete);
+            } catch (Exception e) {
+                System.err.println("Lỗi khi xóa video: " + e.getMessage());
+            }
+        }
+
+        for (String videoUrl : videoList) {
+            if (videoUrl != null && videoUrl.startsWith("data:video")) {
+                try {
+                    MultipartFile file = Base64ToMultipartFileConverter.convert(videoUrl);
+                    String uploadedUrl = uploadClient.uploadVideoFile(file, "poster_video_" + poster.getIdPoster() + "_" + System.currentTimeMillis());
+
+                    if (uploadedUrl != null && !uploadedUrl.isBlank()) {
+                        VideoPoster videoPoster = new VideoPoster();
+                        videoPoster.setPoster(poster);
+                        videoPoster.setUrl(uploadedUrl);
+                        videoPoster.setCreatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
+                        videoPoster.setUpdatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
+                        videoPosterRepository.save(videoPoster);
+                        log.info("✅ Video updated successfully: {}", uploadedUrl);
+                    } else {
+                        log.error("❌ Upload returned null URL for video");
+                    }
+                } catch (Exception e) {
+                    log.error("❌ Failed to upload video: {}", e.getMessage());
+                }
             }
         }
     }
@@ -167,6 +311,7 @@ try {
 }
 
 @Override
+@Transactional
 public ResponseEntity<?> delete(UUID posterId, UUID userId) {
 try {
     Poster poster = posterRepository.findById(posterId).orElseThrow(() -> new RuntimeException("Poster không tồn tại với ID: " + posterId));
@@ -176,13 +321,23 @@ try {
     commentPosterRepository.deleteAllByPosterId(posterId);
     likePosterRepository.deleteAllByPosterId(posterId);
 
+    // Xóa images
     List<ImagePoster> images = imagePosterRepository.findByPoster(poster);
     for (ImagePoster image : images) {
         try {
-            // No remote delete; just remove DB record
             uploadClient.deleteByImageUrl(image.getUrl());
         } catch (Exception e) {
-            System.err.println("Lỗi khi xóa ảnh từ DB: " + e.getMessage());
+            System.err.println("Lỗi khi xóa ảnh: " + e.getMessage());
+        }
+    }
+
+    // 🎬 Xóa videos
+    List<VideoPoster> videos = videoPosterRepository.findByPoster(poster);
+    for (VideoPoster video : videos) {
+        try {
+            uploadClient.deleteByVideoUrl(video.getUrl());
+        } catch (Exception e) {
+            System.err.println("Lỗi khi xóa video: " + e.getMessage());
         }
     }
 
@@ -263,8 +418,25 @@ if (poster.getUser() != null) {
 
 if (poster.getPrivacyStatus() != null) dto.put("privacyStatusName", poster.getPrivacyStatus().getName());
 
+// 📷 Images
 List<ImagePoster> images = imagePosterRepository.findByPoster(poster);
-if (images != null && !images.isEmpty()) dto.put("imageUrls", images.stream().map(ImagePoster::getUrl).collect(java.util.stream.Collectors.toList()));
+if (images != null && !images.isEmpty()) {
+    dto.put("imageUrls", images.stream().map(ImagePoster::getUrl).collect(java.util.stream.Collectors.toList()));
+}
+
+// 🎬 Videos
+List<VideoPoster> videos = videoPosterRepository.findByPoster(poster);
+if (videos != null && !videos.isEmpty()) {
+    List<java.util.Map<String, Object>> videoData = videos.stream().map(video -> {
+        java.util.Map<String, Object> videoInfo = new java.util.HashMap<>();
+        videoInfo.put("url", video.getUrl());
+        videoInfo.put("thumbnailUrl", video.getThumbnailUrl());
+        videoInfo.put("duration", video.getDuration());
+        videoInfo.put("fileSize", video.getFileSize());
+        return videoInfo;
+    }).collect(java.util.stream.Collectors.toList());
+    dto.put("videos", videoData);
+}
 
 return dto;
 }

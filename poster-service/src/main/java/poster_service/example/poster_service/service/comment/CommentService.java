@@ -27,4 +27,7 @@ public interface CommentService {
     
     // Đếm tổng số comment của poster
     ResponseEntity<?> getTotalComments(UUID posterId);
+
+    //Lấy comment theo Id
+    ResponseEntity<CommentDTO> getCommentById(UUID commentId);
 }

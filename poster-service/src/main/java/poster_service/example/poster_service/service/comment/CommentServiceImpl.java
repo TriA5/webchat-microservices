@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -299,15 +300,15 @@ public class CommentServiceImpl implements CommentService {
                 .build();
     }
 
-    // Helper method: Convert entity sang DTO (có load replies)
+    // Helper method: Convert entity sang DTO (có load replies đệ quy - hỗ trợ nested replies nhiều cấp)
     private CommentDTO convertToDTOWithReplies(CommentPoster comment) {
         // Load replies từ database
         List<CommentPoster> replyEntities = commentPosterRepository
                 .findRepliesByParentCommentId(comment.getIdComment());
 
-        // Convert replies sang DTO
+        // Convert replies sang DTO ĐỆ QUY - mỗi reply cũng sẽ load replies của nó
         List<CommentDTO> replyDTOs = replyEntities.stream()
-                .map(this::convertToDTO)
+                .map(this::convertToDTOWithReplies) // 🔄 Gọi đệ quy để load nested replies
                 .collect(Collectors.toList());
 
         return CommentDTO.builder()
@@ -315,11 +316,35 @@ public class CommentServiceImpl implements CommentService {
                 .content(comment.getContent())
                 .idUser(comment.getIdUser())
                 .idPoster(comment.getPoster().getIdPoster())
-                .parentCommentId(null) // root comment không có parent
+                .parentCommentId(comment.getParentComment() != null ? comment.getParentComment().getIdComment() : null)
                 .createdAt(comment.getCreatedAt())
                 .updatedAt(comment.getUpdatedAt())
                 .replies(replyDTOs)
                 .replyCount(replyDTOs.size())
                 .build();
+    }
+    //lấy comment theo Id
+    @Override
+    public ResponseEntity<CommentDTO> getCommentById(UUID commentId) {
+        try {
+            // Validate input
+            if (commentId == null) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            // Tìm comment theo ID
+            Optional<CommentPoster> commentOpt = commentPosterRepository.findById(commentId);
+            if (commentOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            // Chuyển đổi entity sang DTO
+            CommentDTO commentDTO = convertToDTO(commentOpt.get());
+            return ResponseEntity.ok(commentDTO);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
     }
 }

@@ -75,4 +75,10 @@ public class CommentPosterController {
     public ResponseEntity<?> getCommentStatistics(@PathVariable UUID posterId) {
         return commentService.getTotalComments(posterId);
     }
+
+    // Lấy comment theo Id
+    @GetMapping("/comment/{commentId}")
+    public ResponseEntity<CommentDTO> getCommentById(@PathVariable UUID commentId) {
+        return commentService.getCommentById(commentId);
+    }
 }

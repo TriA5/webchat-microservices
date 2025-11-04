@@ -42,8 +42,21 @@ public class PosterController {
     @PostMapping
     public ResponseEntity<?> createPoster(@RequestBody JsonNode posterJson) {
         try {
+            System.out.println("📥 Received poster creation request: " + posterJson);
+            
+            // Validate required fields
+            if (posterJson == null) {
+                return ResponseEntity.badRequest().body("❌ Request body không được để trống");
+            }
+            
+            if (!posterJson.has("idUser")) {
+                return ResponseEntity.badRequest().body("❌ Thiếu trường 'idUser' trong request");
+            }
+            
             // Lấy idUser từ JSON
             String userIdStr = posterJson.get("idUser").asText();
+            System.out.println("👤 User ID: " + userIdStr);
+            
             UUID userId = UUID.fromString(userIdStr);
             
             ResponseEntity<?> response = posterService.save(posterJson, userId);
@@ -61,10 +74,13 @@ public class PosterController {
             
             return response;
         } catch (IllegalArgumentException e) {
+            System.err.println("❌ UUID không hợp lệ: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.badRequest().body("❌ UUID không hợp lệ: " + e.getMessage());
         } catch (Exception e) {
+            System.err.println("❌ Error creating poster: " + e.getMessage());
             e.printStackTrace();
-            return ResponseEntity.badRequest().body("❌ Lỗi: " + e.getMessage());
+            return ResponseEntity.status(500).body("❌ Lỗi hệ thống: " + e.getMessage());
         }
     }
 
