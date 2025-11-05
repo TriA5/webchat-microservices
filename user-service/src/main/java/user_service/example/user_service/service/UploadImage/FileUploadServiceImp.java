@@ -47,20 +47,31 @@ public class FileUploadServiceImp implements FileUploadService {
     public void deleteFile(String fileUrl) {
         try {
             String publicId = getPublicId(fileUrl);
-            // Try different resource types
-            try {
-                cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "image"));
-            } catch (Exception e) {
-                try {
-                    cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "raw"));
-                } catch (Exception ex) {
-                    cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "video"));
-                }
-            }
+            String resourceType = detectResourceType(fileUrl);
+            
+            System.out.println("🗑️ Deleting file from Cloudinary: " + publicId + " (type: " + resourceType + ")");
+            
+            Map<String, Object> result = cloudinary.uploader().destroy(publicId, 
+                ObjectUtils.asMap("resource_type", resourceType));
+            
+            System.out.println("✅ Delete result: " + result);
         } catch (Exception e) {
-            System.out.println("Lỗi khi xóa file: " + e.getMessage());
+            System.out.println("❌ Lỗi khi xóa file: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private String detectResourceType(String fileUrl) {
+        // Cloudinary URL format: http://res.cloudinary.com/.../image/upload/... hoặc /video/upload/...
+        if (fileUrl.contains("/video/upload/")) {
+            return "video";
+        } else if (fileUrl.contains("/image/upload/")) {
+            return "image";
+        } else if (fileUrl.contains("/raw/upload/")) {
+            return "raw";
+        }
+        // Default to auto for unknown types
+        return "image";
     }
 
     private String getPublicId(String fileUrl) {

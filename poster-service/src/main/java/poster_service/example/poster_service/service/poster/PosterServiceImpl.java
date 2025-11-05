@@ -167,8 +167,9 @@ try {
             String item = videoList.get(i);
             if (item != null && item.startsWith("data:video")) {
                 try {
+                    log.info("🎬 Uploading video {} to Cloudinary (base64 size: {} chars)", i, item.length());
                     MultipartFile file = Base64ToMultipartFileConverter.convert(item);
-                    String videoUrl = uploadClient.uploadVideoFile(file, "poster_video_" + newPoster.getIdPoster() + "_" + i);
+                    String videoUrl = uploadClient.uploadFile(file, "poster_video_" + newPoster.getIdPoster() + "_" + i);
 
                     if (videoUrl != null && !videoUrl.isBlank()) {
                         VideoPoster videoPoster = new VideoPoster();
@@ -182,15 +183,20 @@ try {
                         log.error("❌ Upload returned null URL for video {}", i);
                     }
                 } catch (Exception e) {
-                    log.error("❌ Failed to upload video {}: {}", i, e.getMessage());
+                    log.error("❌ Failed to upload video {}: {}", i, e.getMessage(), e);
+                    throw new RuntimeException("Lỗi upload video: " + e.getMessage(), e);
                 }
-            } else if (item != null && !item.isBlank()) {
+            } else if (item != null && !item.isBlank() && (item.startsWith("http://") || item.startsWith("https://"))) {
+                // Chỉ lưu URL nếu đã là link Cloudinary
                 VideoPoster videoPoster = new VideoPoster();
                 videoPoster.setPoster(newPoster);
                 videoPoster.setUrl(item);
                 videoPoster.setCreatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
                 videoPoster.setUpdatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
                 videoPosterRepository.save(videoPoster);
+                log.info("✅ Saved existing video URL: {}", item);
+            } else {
+                log.warn("⚠️ Skipping invalid video item at index {}", i);
             }
         }
     }
@@ -229,14 +235,26 @@ try {
         List<ImagePoster> oldImages = imagePosterRepository.findByPoster(poster);
         List<ImagePoster> imagesToDelete = oldImages.stream().filter(img -> !imageList.contains(img.getUrl())).collect(java.util.stream.Collectors.toList());
 
+        // Xóa ảnh cũ không còn trong danh sách mới
         for (ImagePoster imageToDelete : imagesToDelete) {
             try {
+                // Xóa trên Cloudinary nếu là URL Cloudinary
+                if (imageToDelete.getUrl() != null && imageToDelete.getUrl().contains("cloudinary")) {
+                    try {
+                        uploadClient.deleteByImageUrl(imageToDelete.getUrl());
+                        log.info("🗑️ Deleted old image from Cloudinary: {}", imageToDelete.getUrl());
+                    } catch (Exception ex) {
+                        log.error("❌ Failed to delete image from Cloudinary: {}", ex.getMessage());
+                    }
+                }
+                // Xóa record trong database
                 imagePosterRepository.delete(imageToDelete);
             } catch (Exception e) {
-                System.err.println("Lỗi khi xóa ảnh: " + e.getMessage());
+                log.error("❌ Lỗi khi xóa ảnh: {}", e.getMessage());
             }
         }
 
+        // Thêm ảnh mới (base64) hoặc giữ lại ảnh cũ (URL Cloudinary)
         for (String imageUrl : imageList) {
             if (imageUrl != null && imageUrl.startsWith("data:")) {
                 var body = java.util.Map.of("name", "poster_" + poster.getIdPoster() + "_" + System.currentTimeMillis(), "data", imageUrl);
@@ -259,6 +277,7 @@ try {
                     log.error("❌ Upload returned null/empty URL when updating image for poster {}", poster.getIdPoster());
                 }
             }
+            // Nếu là URL Cloudinary cũ thì không cần làm gì (đã có trong DB)
         }
     }
 
@@ -268,14 +287,26 @@ try {
         List<VideoPoster> oldVideos = videoPosterRepository.findByPoster(poster);
         List<VideoPoster> videosToDelete = oldVideos.stream().filter(vid -> !videoList.contains(vid.getUrl())).collect(java.util.stream.Collectors.toList());
 
+        // Xóa video cũ không còn trong danh sách mới
         for (VideoPoster videoToDelete : videosToDelete) {
             try {
+                // Xóa trên Cloudinary nếu là URL Cloudinary
+                if (videoToDelete.getUrl() != null && videoToDelete.getUrl().contains("cloudinary")) {
+                    try {
+                        uploadClient.deleteByVideoUrl(videoToDelete.getUrl());
+                        log.info("🗑️ Deleted old video from Cloudinary: {}", videoToDelete.getUrl());
+                    } catch (Exception ex) {
+                        log.error("❌ Failed to delete video from Cloudinary: {}", ex.getMessage());
+                    }
+                }
+                // Xóa record trong database
                 videoPosterRepository.delete(videoToDelete);
             } catch (Exception e) {
-                System.err.println("Lỗi khi xóa video: " + e.getMessage());
+                log.error("❌ Lỗi khi xóa video: {}", e.getMessage());
             }
         }
 
+        // Thêm video mới (base64) hoặc giữ lại video cũ (URL Cloudinary)
         for (String videoUrl : videoList) {
             if (videoUrl != null && videoUrl.startsWith("data:video")) {
                 try {
@@ -297,6 +328,7 @@ try {
                     log.error("❌ Failed to upload video: {}", e.getMessage());
                 }
             }
+            // Nếu là URL Cloudinary cũ thì không cần làm gì (đã có trong DB)
         }
     }
 

@@ -17,10 +17,11 @@ public interface UploadClient {
     String uploadBase64(@RequestBody Map<String, String> body);
 
     // Upload multipart file
+    // Upload multipart file
     @PostMapping(value = "/uploads/file", consumes = "multipart/form-data")
     String uploadFile(
-        @RequestParam("file") MultipartFile file,
-        @RequestParam(value = "name", required = false) String name
+        @RequestPart("file") MultipartFile file,
+        @RequestPart(value = "name", required = false) String name
     );
 
     // Upload video base64

@@ -15,10 +15,10 @@ public class VideoPoster {
     @Column(name = "id_video", updatable = false, nullable = false)
     private UUID idVideo;
 
-    @Column(name = "url", nullable = false, length = 500)
+    @Column(name = "url", nullable = false, length = 2000)
     private String url;
 
-    @Column(name = "thumbnail_url", length = 500)
+    @Column(name = "thumbnail_url", length = 2000)
     private String thumbnailUrl;
 
     @Column(name = "duration")
