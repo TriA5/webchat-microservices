@@ -34,7 +34,7 @@ public class UploadFileClient {
 
     public String uploadFile(MultipartFile file, String name) {
         try {
-            String url = "http://localhost:8081/uploads/file"; // user-service local port
+            String url = "http://user-service:8081/uploads/file";
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.MULTIPART_FORM_DATA);
@@ -69,6 +69,32 @@ public class UploadFileClient {
         } catch (Exception e) {
             log.error("Failed to upload file to user-service: {}", e.toString(), e);
             throw new RuntimeException("Upload failed: " + e.getMessage(), e);
+        }
+    }
+
+    public org.springframework.core.io.ByteArrayResource downloadFile(String fileUrl, String authorizationHeader) {
+        try {
+            String url = "http://user-service:8081/uploads/download?fileUrl=" + 
+                        java.net.URLEncoder.encode(fileUrl, java.nio.charset.StandardCharsets.UTF_8);
+
+            HttpHeaders headers = new HttpHeaders();
+            if (authorizationHeader != null && !authorizationHeader.isBlank()) {
+                headers.set("Authorization", authorizationHeader);
+                log.info("[upload-file-client] Forwarding Authorization header for download present=true");
+            }
+
+            HttpEntity<?> requestEntity = new HttpEntity<>(headers);
+            ResponseEntity<byte[]> resp = rest.exchange(url, HttpMethod.GET, requestEntity, byte[].class);
+            
+            byte[] data = resp.getBody();
+            if (data == null) {
+                throw new RuntimeException("Download returned null body");
+            }
+            
+            return new org.springframework.core.io.ByteArrayResource(data);
+        } catch (Exception e) {
+            log.error("Failed to download file from user-service: {}", e.toString(), e);
+            throw new RuntimeException("Download failed: " + e.getMessage(), e);
         }
     }
 

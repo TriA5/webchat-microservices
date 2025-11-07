@@ -12,6 +12,8 @@ import chat_service.example.chat_service.repository.GroupConversationRepository;
 import chat_service.example.chat_service.repository.GroupMemberRepository;
 import chat_service.example.chat_service.repository.MessageRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,6 +21,8 @@ import org.springframework.web.multipart.MultipartFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -116,6 +120,92 @@ public class GroupChatService {
                 .orElseThrow(() -> new RuntimeException("Nhóm không tồn tại"));
         return messageRepository.findByGroupConversationOrderByCreatedAtAsc(group)
                 .stream()
+                .map(m -> {
+                    String avatar = null;
+                    try {
+                        var u = userClient.getUserById(m.getSender());
+                        if (u != null) avatar = u.getAvatar();
+                    } catch (Exception ignored) {}
+
+                    return new ChatMessageDTO(
+                        m.getId(),
+                        null,
+                        groupId,
+                        m.getSender(),
+                        avatar,
+                        m.getContent(),
+                        m.getMessageType(),
+                        m.getImageUrl(),
+                        m.getFileUrl(),
+                        m.getFileName(),
+                        m.getFileSize(),
+                        m.getCreatedAt()
+                    );
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Lấy tin nhắn nhóm với pagination
+     * @param groupId ID của nhóm
+     * @param page Số trang (0-based)
+     * @param size Số lượng tin nhắn mỗi trang (mặc định 10)
+     * @return Danh sách tin nhắn
+     */
+    public List<ChatMessageDTO> getGroupMessagesPaginated(UUID groupId, int page, int size) {
+        GroupConversation group = groupConversationRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Nhóm không tồn tại"));
+        
+        Pageable pageable = PageRequest.of(page, size);
+        List<Message> messages = messageRepository.findByGroupConversationOrderByCreatedAtDesc(group, pageable);
+        
+        // Đảo ngược danh sách để tin nhắn cũ nhất ở đầu
+        Collections.reverse(messages);
+        
+        return messages.stream()
+                .map(m -> {
+                    String avatar = null;
+                    try {
+                        var u = userClient.getUserById(m.getSender());
+                        if (u != null) avatar = u.getAvatar();
+                    } catch (Exception ignored) {}
+
+                    return new ChatMessageDTO(
+                        m.getId(),
+                        null,
+                        groupId,
+                        m.getSender(),
+                        avatar,
+                        m.getContent(),
+                        m.getMessageType(),
+                        m.getImageUrl(),
+                        m.getFileUrl(),
+                        m.getFileName(),
+                        m.getFileSize(),
+                        m.getCreatedAt()
+                    );
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Lấy tin nhắn nhóm cũ hơn một thời điểm cụ thể
+     * @param groupId ID của nhóm
+     * @param before Thời điểm để lấy tin nhắn trước đó
+     * @param size Số lượng tin nhắn (mặc định 10)
+     * @return Danh sách tin nhắn
+     */
+    public List<ChatMessageDTO> getGroupMessagesBeforeTimestamp(UUID groupId, LocalDateTime before, int size) {
+        GroupConversation group = groupConversationRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Nhóm không tồn tại"));
+        
+        Pageable pageable = PageRequest.of(0, size);
+        List<Message> messages = messageRepository.findByGroupConversationBeforeTimestamp(group, before, pageable);
+        
+        // Đảo ngược để tin nhắn cũ nhất ở đầu
+        Collections.reverse(messages);
+        
+        return messages.stream()
                 .map(m -> {
                     String avatar = null;
                     try {

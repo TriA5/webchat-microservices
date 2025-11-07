@@ -1,12 +1,16 @@
 package chat_service.example.chat_service.service.chat;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -73,6 +77,92 @@ public class ChatService {
         Conversation conversation = conversationRepository.findById(conversationId).orElseThrow();
         return messageRepository.findByConversationOrderByCreatedAtAsc(conversation)
                 .stream()
+                .map(m -> {
+                    String avatar = null;
+                    try {
+                        chat_service.example.chat_service.client.UserDTO u = userClient.getUserById(m.getSender());
+                        if (u != null) avatar = u.getAvatar();
+                    } catch (Exception ignored) {}
+
+                    return new ChatMessageDTO(
+                            m.getId(),
+                            conversationId,
+                            null,
+                            m.getSender(),
+                            avatar,
+                            m.getContent(),
+                            m.getMessageType(),
+                            m.getImageUrl(),
+                            m.getFileUrl(),
+                            m.getFileName(),
+                            m.getFileSize(),
+                            m.getCreatedAt()
+                    );
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Lấy tin nhắn mới nhất với pagination
+     * @param conversationId ID của cuộc hội thoại
+     * @param page Số trang (0-based)
+     * @param size Số lượng tin nhắn mỗi trang (mặc định 10)
+     * @return Danh sách tin nhắn (được sắp xếp từ cũ đến mới để hiển thị đúng thứ tự trên UI)
+     */
+    public List<ChatMessageDTO> getMessagesPaginated(UUID conversationId, int page, int size) {
+        Conversation conversation = conversationRepository.findById(conversationId).orElseThrow();
+        Pageable pageable = PageRequest.of(page, size);
+        
+        // Lấy tin nhắn theo thứ tự DESC (mới nhất trước)
+        List<Message> messages = messageRepository.findByConversationOrderByCreatedAtDesc(conversation, pageable);
+        
+        // Đảo ngược danh sách để tin nhắn cũ nhất ở đầu (để hiển thị đúng trên UI)
+        Collections.reverse(messages);
+        
+        return messages.stream()
+                .map(m -> {
+                    String avatar = null;
+                    try {
+                        chat_service.example.chat_service.client.UserDTO u = userClient.getUserById(m.getSender());
+                        if (u != null) avatar = u.getAvatar();
+                    } catch (Exception ignored) {}
+
+                    return new ChatMessageDTO(
+                            m.getId(),
+                            conversationId,
+                            null,
+                            m.getSender(),
+                            avatar,
+                            m.getContent(),
+                            m.getMessageType(),
+                            m.getImageUrl(),
+                            m.getFileUrl(),
+                            m.getFileName(),
+                            m.getFileSize(),
+                            m.getCreatedAt()
+                    );
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Lấy tin nhắn cũ hơn một thời điểm cụ thể (dùng khi scroll lên để load thêm)
+     * @param conversationId ID của cuộc hội thoại
+     * @param before Thời điểm để lấy tin nhắn trước đó
+     * @param size Số lượng tin nhắn (mặc định 10)
+     * @return Danh sách tin nhắn
+     */
+    public List<ChatMessageDTO> getMessagesBeforeTimestamp(UUID conversationId, LocalDateTime before, int size) {
+        Conversation conversation = conversationRepository.findById(conversationId).orElseThrow();
+        Pageable pageable = PageRequest.of(0, size);
+        
+        // Lấy tin nhắn cũ hơn thời điểm 'before' theo thứ tự DESC
+        List<Message> messages = messageRepository.findByConversationBeforeTimestamp(conversation, before, pageable);
+        
+        // Đảo ngược để tin nhắn cũ nhất ở đầu
+        Collections.reverse(messages);
+        
+        return messages.stream()
                 .map(m -> {
                     String avatar = null;
                     try {

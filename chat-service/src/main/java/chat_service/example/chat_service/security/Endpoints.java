@@ -10,6 +10,7 @@ public class Endpoints {
         "/group-video-call/**",
         "/users/search/findByIdUser?IdUser={IdUser}",
          "/groups/**",
+         "/chat/download-file",
          //  "/group-members/**",
         // "/group-conversations/**",
     };

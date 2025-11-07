@@ -17,25 +17,24 @@ public class FileUploadServiceImp implements FileUploadService {
     public String uploadFile(MultipartFile multipartFile, String name) {
         String url = "";
         try {
-            // Validate file
-            if (multipartFile == null || multipartFile.isEmpty()) {
-                throw new IllegalArgumentException("File is empty or null");
-            }
-            
-            System.out.println("📤 Uploading file: " + multipartFile.getOriginalFilename() 
-                + " (size: " + multipartFile.getSize() + " bytes, type: " + multipartFile.getContentType() + ")");
-            
             // Cloudinary tự động xác định resource_type dựa trên file
+            String contentType = multipartFile.getContentType();
+            String resourceType = "raw";
+            if (contentType != null) {
+                if (contentType.startsWith("image/")) resourceType = "image";
+                else if (contentType.startsWith("video/")) resourceType = "video";
+                else resourceType = "raw";
+            }
+            // Ensure uploaded file is public and set explicit resource_type when needed
             url = cloudinary.uploader()
                     .upload(multipartFile.getBytes(), 
                         Map.of(
                             "public_id", name,
-                            "resource_type", "auto" // auto detect: image, video, raw (documents)
+                            "resource_type", resourceType,
+                            "access_mode", "public"
                         ))
                     .get("url")
                     .toString();
-            
-            System.out.println("✅ File uploaded successfully: " + url);
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException("Failed to upload file: " + e.getMessage());

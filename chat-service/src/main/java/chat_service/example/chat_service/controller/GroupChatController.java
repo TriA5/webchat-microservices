@@ -1,6 +1,7 @@
 package chat_service.example.chat_service.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,6 +11,7 @@ import chat_service.example.chat_service.dto.GroupMemberDTO;
 import chat_service.example.chat_service.entity.GroupConversation;
 import chat_service.example.chat_service.service.chat.GroupChatService;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,6 +47,30 @@ public class GroupChatController {
     @GetMapping("/{groupId}/messages")
     public ResponseEntity<List<ChatMessageDTO>> getMessages(@PathVariable UUID groupId) {
         return ResponseEntity.ok(groupChatService.getGroupMessages(groupId));
+    }
+
+    /**
+     * Lấy tin nhắn nhóm với pagination
+     * GET /groups/{groupId}/messages/paginated?page=0&size=10
+     */
+    @GetMapping("/{groupId}/messages/paginated")
+    public ResponseEntity<List<ChatMessageDTO>> getMessagesPaginated(
+            @PathVariable UUID groupId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(groupChatService.getGroupMessagesPaginated(groupId, page, size));
+    }
+
+    /**
+     * Lấy tin nhắn nhóm cũ hơn một thời điểm cụ thể
+     * GET /groups/{groupId}/messages/before?timestamp=2024-01-01T10:00:00&size=10
+     */
+    @GetMapping("/{groupId}/messages/before")
+    public ResponseEntity<List<ChatMessageDTO>> getMessagesBeforeTimestamp(
+            @PathVariable UUID groupId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime timestamp,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(groupChatService.getGroupMessagesBeforeTimestamp(groupId, timestamp, size));
     }
 
     @GetMapping("/user/{userId}")

@@ -3,6 +3,7 @@ package user_service.example.user_service.security;
 public class Endpoints {
     public static final String font_end_host = "http://localhost:3000";
     public static final String[] PUBLIC_GET = {
+        "/uploads/**",
         "/users",
         "/users/**",
         "/users/active-account",
