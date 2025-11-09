@@ -99,4 +99,12 @@ public class GroupChatController {
         groupChatService.deleteGroup(groupId, requesterId);
         return ResponseEntity.ok().build();
     }
+    //thêm thành viên vào nhóm khi chưa kết bạn
+    @PostMapping("/{groupId}/add-member-if-not-friend")
+    public ResponseEntity<Void> addMemberToGroupIfNotFriend(
+            @PathVariable UUID groupId,
+            @RequestParam UUID userId) {
+        groupChatService.addMemberToGroupIfNotFriend(groupId, userId);
+        return ResponseEntity.ok().build();
+    }
 }

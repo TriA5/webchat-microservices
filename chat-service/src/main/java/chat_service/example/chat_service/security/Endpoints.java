@@ -29,6 +29,7 @@ public class Endpoints {
     
     public static final String[] PUBLIC_DELETE = {
         "/groups/**",
+        "/chats/**",
     };
     
     // Admin endpoints - cần role ADMIN

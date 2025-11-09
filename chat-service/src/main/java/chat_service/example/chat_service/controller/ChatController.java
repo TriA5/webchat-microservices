@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import chat_service.example.chat_service.client.UploadFileClient;
 import chat_service.example.chat_service.dto.ChatMessageDTO;
 import chat_service.example.chat_service.dto.ConversationDTO;
+import chat_service.example.chat_service.entity.Message;
 import chat_service.example.chat_service.service.chat.ChatService;
 import chat_service.example.chat_service.service.chat.GroupChatService;
 import lombok.Data;
@@ -170,4 +172,23 @@ public class ChatController {
             return ResponseEntity.status(500).build();
         }
     }
+    //Delete message
+    @DeleteMapping("/delete-message/{messageId}")
+    public ResponseEntity<Void> deleteMessage(@PathVariable UUID messageId, @RequestParam UUID userId) {
+        chatService.deleteMessage(messageId, userId);
+        return ResponseEntity.noContent().build();
+    }
+    //Lấy tất cã các ảnh theo id cuộc trò chuyện
+    @GetMapping("/images/{conversationId}")
+    public ResponseEntity<List<Message>> getImagesByConversationId(@PathVariable UUID conversationId) {
+        List<Message> messages = chatService.getImageMessagesByConversationId(conversationId);
+        return ResponseEntity.ok(messages);
+    }
+    //Lấy tất cã các file theo id cuộc trò chuyện
+    @GetMapping("/files/{conversationId}")
+    public ResponseEntity<List<Message>> getFilesByConversationId(@PathVariable UUID conversationId) {
+        List<Message> messages = chatService.getFileMessagesByConversationId(conversationId);
+        return ResponseEntity.ok(messages);
+    }
+
 }

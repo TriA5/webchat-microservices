@@ -77,7 +77,23 @@ public class GroupChatService {
         } catch (Exception ignored) {}
         messagingTemplate.convertAndSend("/topic/group/" + groupId, "User " + username + " đã tham gia");
     }
+    //thêm thành viên vào nhóm khi chưa kết bạn
+    public void addMemberToGroupIfNotFriend(UUID groupId, UUID userId) {
+        GroupConversation group = groupConversationRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Nhóm không tồn tại"));
+        if (groupMemberRepository.findByGroupAndUser(group, userId).isPresent()) {
+            throw new RuntimeException("Đã là thành viên của nhóm");
+        }
+        addMember(group, userId, "MEMBER");
 
+        // Notify nhóm về thành viên mới
+        String username = "User";
+        try {
+            var u = userClient.getUserById(userId);
+            if (u != null) username = u.getUsername();
+        } catch (Exception ignored) {}
+        messagingTemplate.convertAndSend("/topic/group/" + groupId, "User " + username + " đã tham gia");
+    }
     public ChatMessageDTO sendGroupMessage(UUID groupId, UUID senderId, String content) {
     try {
         GroupConversation group = groupConversationRepository.findById(groupId)

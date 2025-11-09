@@ -308,5 +308,33 @@ public class ChatService {
             throw new RuntimeException("Failed to send file message: " + e.getMessage(), e);
         }
     }
+    //Delete message
+    public void deleteMessage(UUID messageId, UUID userId) {
+        try {
+            Message message = messageRepository.findById(messageId).orElseThrow(() -> new RuntimeException("Message không tồn tại"));
+            if (!message.getSender().equals(userId)) {
+                throw new RuntimeException("Bạn không có quyền xóa message này");
+            }
+            String linkUrl = message.getImageUrl() != null ? message.getImageUrl() : message.getFileUrl();
+            if(message.getMessageType().equals("IMAGE")) {
+                uploadClient.deleteByImageUrl(linkUrl);
+            } else if(message.getMessageType().equals("FILE")) {
+                uploadClient.deleteByVideoUrl(linkUrl);
+            }else{
+                log.info("Message type is neither IMAGE nor FILE, no associated file to delete.");
+            }
+            messageRepository.delete(message);
+            
+        } catch (Exception e) {
+            throw new RuntimeException("Thất bại khi xóa message: " + e.getMessage(), e);
+        }
+    }
+    //Lấy tất cã các ảnh theo id cuộc trò chuyện
+    public List<Message> getImageMessagesByConversationId(UUID conversationId) {
+        return messageRepository.findImagesByConversation(conversationId);
+    }
+    //Lấy tất cã các File theo id cuộc trò chuyện
+    public List<Message> getFileMessagesByConversationId(UUID conversationId) {
+        return messageRepository.findFilesByConversation(conversationId);
+    }
 }
-

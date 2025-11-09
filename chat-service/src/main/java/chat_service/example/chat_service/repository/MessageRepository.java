@@ -31,5 +31,24 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     
     @Query("SELECT m FROM Message m WHERE m.groupConversation = :groupConversation AND m.createdAt < :before ORDER BY m.createdAt DESC")
     List<Message> findByGroupConversationBeforeTimestamp(@Param("groupConversation") GroupConversation groupConversation, @Param("before") LocalDateTime before, Pageable pageable);
+
+    //Lấy tất cã các ảnh theo id cuộc trò chuyện
+    @Query("""
+        SELECT m 
+        FROM Message m 
+        JOIN m.conversation c 
+        WHERE m.messageType = 'IMAGE' 
+          AND c.id = :conversationId
+    """)
+    List<Message> findImagesByConversation(@Param("conversationId") UUID conversationId);
+    //Lấy tất cã các ảnh theo id cuộc trò chuyện
+    @Query("""
+        SELECT m 
+        FROM Message m 
+        JOIN m.conversation c 
+        WHERE m.messageType = 'FILE' 
+          AND c.id = :conversationId
+    """)
+    List<Message> findFilesByConversation(@Param("conversationId") UUID conversationId);
 }
 
