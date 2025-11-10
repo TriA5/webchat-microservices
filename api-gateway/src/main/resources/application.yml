@@ -101,6 +101,14 @@ spring:
             - Path=/api/notifications/**
           filters:
             - StripPrefix=1
+
+        - id: share-poster
+          uri: lb://poster-service
+          predicates:
+            - Path=/api/shares/**
+          filters:
+            - StripPrefix=1
+            
       discovery:
         locator:
           enabled: true
@@ -233,6 +241,13 @@ spring:
           uri: lb://poster-service
           predicates:
             - Path=/api/notifications/**
+          filters:
+            - StripPrefix=1
+
+        - id: share-poster
+          uri: lb://poster-service
+          predicates:
+            - Path=/api/shares/**
           filters:
             - StripPrefix=1
         

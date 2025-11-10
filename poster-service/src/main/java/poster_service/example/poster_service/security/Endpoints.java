@@ -9,7 +9,8 @@ public class Endpoints {
         "/posters/**",
         "/like-posters/**",
         "/comments/**",
-        "/notifications/**"
+        "/notifications/**",
+        "/shares/**"
     };
     
     public static final String[] PUBLIC_POST = {
@@ -17,14 +18,16 @@ public class Endpoints {
         "/posters/**",
         "/like-posters/**",
         "/comments/**",
-        "/notifications/**"
+        "/notifications/**",
+        "/shares/**"
     };
     
     public static final String[] PUBLIC_PUT = {
         "/admin/**",
         "/posters/**",
         "/comments/**",
-        "/notifications/**"
+        "/notifications/**",
+        "/shares/**"
     };
     
     public static final String[] PUBLIC_DELETE = {
@@ -32,7 +35,8 @@ public class Endpoints {
         "/posters/**",
         "/like-posters/**",
         "/comments/**",
-        "/notifications/**"
+        "/notifications/**",
+        "/shares/**"
     };
     
     // Admin endpoints - cần role ADMIN

@@ -56,6 +56,9 @@ private LikePosterRepository likePosterRepository;
 private CommentPosterRepository commentPosterRepository;
 
 @Autowired
+private poster_service.example.poster_service.repository.SharePosterRepository sharePosterRepository;
+
+@Autowired
 private poster_service.example.poster_service.client.FriendshipClient friendshipClient;
 
 @Autowired
@@ -352,6 +355,9 @@ try {
     // Xóa các quan hệ phụ thuộc trước khi xóa poster để tránh vi phạm ràng buộc khóa ngoại
     commentPosterRepository.deleteAllByPosterId(posterId);
     likePosterRepository.deleteAllByPosterId(posterId);
+    
+    // 📤 Xóa tất cả share của poster này
+    sharePosterRepository.deleteAllByPosterId(posterId);
 
     // Xóa images
     List<ImagePoster> images = imagePosterRepository.findByPoster(poster);
