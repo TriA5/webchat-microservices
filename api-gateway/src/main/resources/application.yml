@@ -108,7 +108,13 @@ spring:
             - Path=/api/shares/**
           filters:
             - StripPrefix=1
-            
+        # weather-service
+        - id: weather-service
+          uri: lb://weather-service
+          predicates:
+            - Path=/api/weathers/**
+          filters:
+            - StripPrefix=1
       discovery:
         locator:
           enabled: true
@@ -250,7 +256,13 @@ spring:
             - Path=/api/shares/**
           filters:
             - StripPrefix=1
-        
+        # weather-service
+        - id: weather-service
+          uri: lb://weather-service
+          predicates:
+            - Path=/api/weathers/**
+          filters:
+            - StripPrefix=1
       discovery:
         locator:
           enabled: true
