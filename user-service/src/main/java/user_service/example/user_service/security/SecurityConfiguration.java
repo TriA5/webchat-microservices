@@ -63,7 +63,8 @@ public class SecurityConfiguration {
         corsConfig.setAllowedOrigins(Arrays.asList(
             "http://localhost:3000",
             "http://127.0.0.1:3000",
-            "http://192.168.50.1:3000"
+            "http://192.168.50.1:3000",
+            "http://localhost:3001"
             // "https://59q4wqb1-3000.asse.devtunnels.ms",
             // "https://unpessimistically-unbewailed-christy.ngrok-free.dev"
         ));

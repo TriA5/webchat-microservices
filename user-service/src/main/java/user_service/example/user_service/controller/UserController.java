@@ -82,6 +82,12 @@ public class UserController {
                             .badRequest()
                             .body("Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email để xác thực!");
                 }
+                 // Kiểm tra trạng thái block
+                if (!user.isStatus()) {
+                    return ResponseEntity
+                            .badRequest()
+                            .body("Tài khoản đã bị khoá. Vui lòng liên hệ quản trị viên để biết thêm chi tiết!");
+                }
 
                 // Nếu OK thì cấp JWT
                 final String jwtToken = jwtService.generateToken(loginRequest.getUsername());
@@ -142,6 +148,26 @@ public class UserController {
     public ResponseEntity<?> searchByPhone(@RequestParam String phone) {
         try {
             return userServiceImp.searchByPhone(phone);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    //block user
+    @PutMapping("/block/{userId}")
+    public ResponseEntity<?> blockUser(@PathVariable UUID userId) {
+        try{
+            return userServiceImp.blockUser(userId);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    //unblock user
+    @PutMapping("/unblock/{userId}")
+    public ResponseEntity<?> unblockUser(@PathVariable UUID userId) {
+        try{
+            return userServiceImp.unblockUser(userId);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().build();

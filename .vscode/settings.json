@@ -1,3 +1,8 @@
 {
-    "java.configuration.updateBuildConfiguration": "disabled"
+    "java.configuration.updateBuildConfiguration": "disabled",
+    "java.jdt.ls.java.home": "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.17.10-hotspot",
+    "terminal.integrated.env.windows": {
+        "JAVA_HOME": "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.17.10-hotspot",
+        "PATH": "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.17.10-hotspot\\bin;${env:PATH}"
+    }
 }

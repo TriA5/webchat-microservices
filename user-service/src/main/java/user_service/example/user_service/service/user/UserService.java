@@ -1,6 +1,8 @@
 package user_service.example.user_service.service.user;
 
 
+import java.util.UUID;
+
 import org.springframework.http.ResponseEntity;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -20,6 +22,12 @@ public interface UserService {
 
 
     public ResponseEntity<?> changePassword(JsonNode userJson);
+
+    public ResponseEntity<?> blockUser(UUID userId);
+
+    public ResponseEntity<?> unblockUser(UUID userId);
+
+
 
    
 }

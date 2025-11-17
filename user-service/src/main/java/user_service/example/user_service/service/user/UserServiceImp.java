@@ -288,5 +288,33 @@ public ResponseEntity<?> register(UserRegisterDTO dto) {
 
         return ResponseEntity.ok(dto);
     }
+    //block user
+    @Override
+    public ResponseEntity<?> blockUser(UUID userId) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(404).body(new Notification("Người dùng không tồn tại"));
+        }
+
+        User user = userOpt.get();
+        user.setStatus(false);
+        userRepository.save(user);
+
+        return ResponseEntity.ok("Người dùng đã bị khoá.");
+    }
+    //unblock user
+    @Override
+    public ResponseEntity<?> unblockUser(UUID userId) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(404).body(new Notification("Người dùng không tồn tại"));
+        }
+
+        User user = userOpt.get();
+        user.setStatus(true);
+        userRepository.save(user);
+
+        return ResponseEntity.ok("Người dùng đã được mở khoá.");
+    }
 }
 

@@ -19,6 +19,8 @@ public class Endpoints {
         "/users/update-profile",
         "/users/forgot-password",
         "/users/change-password",
+        "/users/block/**",
+        "/users/unblock/**",
     };
     public static final String[] PUBLIC_DELETE = {
         "/admin/**",
