@@ -11,9 +11,12 @@ import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import chat_service.example.chat_service.client.AiClient;
 import chat_service.example.chat_service.dto.ChatMessageDTO;
 import chat_service.example.chat_service.dto.ConversationDTO;
 import chat_service.example.chat_service.entity.Conversation;
@@ -32,6 +35,7 @@ public class ChatService {
     // private final FileUploadService fileUploadService;
     private final chat_service.example.chat_service.client.UploadClient uploadClient;
     private final chat_service.example.chat_service.client.UserClient userClient;
+    private final AiClient aiClient;
 
     public Conversation ensureConversation(UUID userAId, UUID userBId) {
         try {
@@ -51,6 +55,11 @@ public class ChatService {
     }
 
     public ChatMessageDTO sendMessage(UUID conversationId, UUID senderId, String content) {
+        // Kiểm tra toxic trước khi gửi tin nhắn
+        if (isToxic(content)) {
+            content = "***";
+        }
+
         Conversation conversation = conversationRepository.findById(conversationId).orElseThrow();
         Message m = new Message();
         m.setConversation(conversation);
@@ -336,5 +345,31 @@ public class ChatService {
     //Lấy tất cã các File theo id cuộc trò chuyện
     public List<Message> getFileMessagesByConversationId(UUID conversationId) {
         return messageRepository.findFilesByConversation(conversationId);
+    }
+
+    /**
+     * Kiểm tra nội dung tin nhắn có toxic không
+     * @param content Nội dung tin nhắn cần kiểm tra
+     * @return true nếu toxic, false nếu không toxic
+     */
+    private boolean isToxic(String content) {
+        try {
+            Map<String, String> body = new HashMap<>();
+            body.put("text", content);
+            
+            Map<String, Object> response = aiClient.checkToxic(body);
+            
+            // Kiểm tra kết quả từ AI service
+            if (response != null && response.containsKey("toxic")) {
+                return (Boolean) response.get("toxic");
+            }
+            
+            // Nếu không có response hoặc lỗi, mặc định cho phép gửi tin nhắn
+            return false;
+        } catch (Exception e) {
+            log.warn("Không thể kiểm tra toxic, cho phép tin nhắn: " + e.getMessage());
+            // Nếu AI service không khả dụng, vẫn cho phép gửi tin nhắn
+            return false;
+        }
     }
 }

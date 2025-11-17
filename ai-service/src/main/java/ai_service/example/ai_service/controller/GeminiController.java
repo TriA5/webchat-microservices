@@ -1,29 +1,45 @@
-package ai_service.example.ai_service.controller;
+package ai_service.example.ai_service.controller; 
+
+import java.util.HashMap;
+import java.util.Map; 
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RestController; 
 
 import ai_service.example.ai_service.service.AI.GeminiService;
-import lombok.RequiredArgsConstructor;
+import ai_service.example.ai_service.service.AI.GeminiToxicService; 
 
-@RestController
-// @CrossOrigin(origins = "http://localhost:3000")
-@RequestMapping("/gemini")
-@RequiredArgsConstructor
+@RestController 
+// @CrossOrigin(origins = "http://localhost:3000") 
+@RequestMapping("/gemini") 
+public class GeminiController { 
+    private final GeminiService geminiService; 
 
-public class GeminiController {
-    private final GeminiService geminiService;
-
-    @PostMapping("/ask")
-    public String askGeminiAPI(@RequestBody String prompt) {
-        return geminiService.askGemini(prompt);
+    private final GeminiToxicService toxicService; 
+    
+    public GeminiController(GeminiService geminiService, GeminiToxicService toxicService) {
+        this.geminiService = geminiService;
+        this.toxicService = toxicService;
     }
-    @GetMapping("/hello")
-    public String getGeminiInfo() {
+    
+    @PostMapping("/ask") public String askGeminiAPI(@RequestBody String prompt) { 
+        return geminiService.askGemini(prompt); 
+    } 
+    @GetMapping("/hello") 
+    public String getGeminiInfo() { 
         return "Hello From Gemini AI Service";
-    }
-
+    } 
+    
+    @PostMapping("/check-toxic") 
+    public Map<String, Object> checkToxic(@RequestBody Map<String, String> body) { 
+        String text = body.get("text"); 
+        boolean toxic = toxicService.isToxic(text);
+        Map<String, Object> result = new HashMap<>();
+        result.put("toxic", toxic);
+        if (toxic) result.put("message", "Nội dung chứa ngôn từ không phù hợp.");
+        return result;
+    } 
 }
