@@ -24,6 +24,14 @@ public class ChatMessageDTO {
     private Long fileSize;
     private LocalDateTime createdAt;
     
+    // Image validation fields
+    private Boolean isSexy;          // true if image contains sexy/porn/hentai content
+    private Double sexyScore;        // confidence score for sexy content
+    private Double pornScore;        // confidence score for porn content
+    private Double hentaiScore;      // confidence score for hentai content
+    private String topLabel;         // top label: "sexy", "porn", "hentai", or "neutral"
+    private String validationMessage; // message from AI service
+    
     // Constructor for backward compatibility
     public ChatMessageDTO(UUID id, UUID conversationId, UUID senderId, String content, LocalDateTime createdAt) {
         this.id = id;

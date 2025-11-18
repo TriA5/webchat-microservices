@@ -173,4 +173,27 @@ public class UserController {
             return ResponseEntity.badRequest().build();
         }
     }
+    //tổng số user
+    @GetMapping("/total-users")
+    public ResponseEntity<?> countTotalUsers() {
+        try{
+            Long totalUsers = userRepository.countUser();
+            return ResponseEntity.ok(totalUsers);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    //số user đang active
+    @GetMapping("/active-users")
+    public ResponseEntity<?> countActiveUsers() {
+        try{
+            Long activeUsers = userRepository.countStatusUsers();
+            return ResponseEntity.ok(activeUsers);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    //Tổng lượng user tăng trưởng theo tháng
 }

@@ -6,11 +6,13 @@ public class Endpoints {
     public static final String[] PUBLIC_GET = {
         "/admin/**",
         "/gemini/**",
+        "/huggingface/**",
     };
     
     public static final String[] PUBLIC_POST = {
         "/gemini/ask",
         "/gemini/**",
+        "/huggingface/**",
     };
     
     public static final String[] PUBLIC_PUT = {

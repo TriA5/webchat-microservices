@@ -51,6 +51,25 @@ public class Message {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
     
+    // Image validation fields
+    @Column(name = "is_sexy")
+    private Boolean isSexy;
+    
+    @Column(name = "sexy_score")
+    private Double sexyScore;
+    
+    @Column(name = "porn_score")
+    private Double pornScore;
+    
+    @Column(name = "hentai_score")
+    private Double hentaiScore;
+    
+    @Column(name = "top_label")
+    private String topLabel;
+    
+    @Column(name = "validation_message", columnDefinition = "TEXT")
+    private String validationMessage;
+    
     @PrePersist
     @PreUpdate
     private void validate() {

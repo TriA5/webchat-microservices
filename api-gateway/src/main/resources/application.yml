@@ -73,6 +73,13 @@ spring:
             - Path=/api/gemini/**
           filters:
             - StripPrefix=1
+
+        - id: huggingface-service
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/huggingface/**
+          filters:
+            - StripPrefix=1
         # Poster-service
         - id: poster-service
           uri: lb://poster-service
@@ -219,6 +226,13 @@ spring:
           uri: lb://ai-service
           predicates:
             - Path=/api/gemini/**
+          filters:
+            - StripPrefix=1
+
+        - id: huggingface-service
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/huggingface/**
           filters:
             - StripPrefix=1
         # Poster-service

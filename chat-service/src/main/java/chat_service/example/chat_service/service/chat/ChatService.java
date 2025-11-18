@@ -76,7 +76,19 @@ public class ChatService {
             // best-effort: if user-service is unavailable, proceed without avatar
         }
 
-        ChatMessageDTO dto = new ChatMessageDTO(saved.getId(), conversationId, null, senderId, avatar, content, "TEXT", null, null, null, null, saved.getCreatedAt());
+        ChatMessageDTO dto = new ChatMessageDTO();
+        dto.setId(saved.getId());
+        dto.setConversationId(conversationId);
+        dto.setGroupId(null);
+        dto.setSenderId(senderId);
+        dto.setSenderAvatar(avatar);
+        dto.setContent(content);
+        dto.setMessageType("TEXT");
+        dto.setImageUrl(null);
+        dto.setFileUrl(null);
+        dto.setFileName(null);
+        dto.setFileSize(null);
+        dto.setCreatedAt(saved.getCreatedAt());
         // publish to conversation topic
         messagingTemplate.convertAndSend("/topic/chat/" + conversationId, dto);
         return dto;
@@ -93,20 +105,29 @@ public class ChatService {
                         if (u != null) avatar = u.getAvatar();
                     } catch (Exception ignored) {}
 
-                    return new ChatMessageDTO(
-                            m.getId(),
-                            conversationId,
-                            null,
-                            m.getSender(),
-                            avatar,
-                            m.getContent(),
-                            m.getMessageType(),
-                            m.getImageUrl(),
-                            m.getFileUrl(),
-                            m.getFileName(),
-                            m.getFileSize(),
-                            m.getCreatedAt()
-                    );
+                    ChatMessageDTO dto = new ChatMessageDTO();
+                    dto.setId(m.getId());
+                    dto.setConversationId(conversationId);
+                    dto.setGroupId(null);
+                    dto.setSenderId(m.getSender());
+                    dto.setSenderAvatar(avatar);
+                    dto.setContent(m.getContent());
+                    dto.setMessageType(m.getMessageType());
+                    dto.setImageUrl(m.getImageUrl());
+                    dto.setFileUrl(m.getFileUrl());
+                    dto.setFileName(m.getFileName());
+                    dto.setFileSize(m.getFileSize());
+                    dto.setCreatedAt(m.getCreatedAt());
+                    
+                    // Add validation fields from database
+                    dto.setIsSexy(m.getIsSexy());
+                    dto.setSexyScore(m.getSexyScore());
+                    dto.setPornScore(m.getPornScore());
+                    dto.setHentaiScore(m.getHentaiScore());
+                    dto.setTopLabel(m.getTopLabel());
+                    dto.setValidationMessage(m.getValidationMessage());
+                    
+                    return dto;
                 })
                 .collect(Collectors.toList());
     }
@@ -136,20 +157,29 @@ public class ChatService {
                         if (u != null) avatar = u.getAvatar();
                     } catch (Exception ignored) {}
 
-                    return new ChatMessageDTO(
-                            m.getId(),
-                            conversationId,
-                            null,
-                            m.getSender(),
-                            avatar,
-                            m.getContent(),
-                            m.getMessageType(),
-                            m.getImageUrl(),
-                            m.getFileUrl(),
-                            m.getFileName(),
-                            m.getFileSize(),
-                            m.getCreatedAt()
-                    );
+                    ChatMessageDTO dto = new ChatMessageDTO();
+                    dto.setId(m.getId());
+                    dto.setConversationId(conversationId);
+                    dto.setGroupId(null);
+                    dto.setSenderId(m.getSender());
+                    dto.setSenderAvatar(avatar);
+                    dto.setContent(m.getContent());
+                    dto.setMessageType(m.getMessageType());
+                    dto.setImageUrl(m.getImageUrl());
+                    dto.setFileUrl(m.getFileUrl());
+                    dto.setFileName(m.getFileName());
+                    dto.setFileSize(m.getFileSize());
+                    dto.setCreatedAt(m.getCreatedAt());
+                    
+                    // Add validation fields from database
+                    dto.setIsSexy(m.getIsSexy());
+                    dto.setSexyScore(m.getSexyScore());
+                    dto.setPornScore(m.getPornScore());
+                    dto.setHentaiScore(m.getHentaiScore());
+                    dto.setTopLabel(m.getTopLabel());
+                    dto.setValidationMessage(m.getValidationMessage());
+                    
+                    return dto;
                 })
                 .collect(Collectors.toList());
     }
@@ -179,20 +209,29 @@ public class ChatService {
                         if (u != null) avatar = u.getAvatar();
                     } catch (Exception ignored) {}
 
-                    return new ChatMessageDTO(
-                            m.getId(),
-                            conversationId,
-                            null,
-                            m.getSender(),
-                            avatar,
-                            m.getContent(),
-                            m.getMessageType(),
-                            m.getImageUrl(),
-                            m.getFileUrl(),
-                            m.getFileName(),
-                            m.getFileSize(),
-                            m.getCreatedAt()
-                    );
+                    ChatMessageDTO dto = new ChatMessageDTO();
+                    dto.setId(m.getId());
+                    dto.setConversationId(conversationId);
+                    dto.setGroupId(null);
+                    dto.setSenderId(m.getSender());
+                    dto.setSenderAvatar(avatar);
+                    dto.setContent(m.getContent());
+                    dto.setMessageType(m.getMessageType());
+                    dto.setImageUrl(m.getImageUrl());
+                    dto.setFileUrl(m.getFileUrl());
+                    dto.setFileName(m.getFileName());
+                    dto.setFileSize(m.getFileSize());
+                    dto.setCreatedAt(m.getCreatedAt());
+                    
+                    // Add validation fields from database
+                    dto.setIsSexy(m.getIsSexy());
+                    dto.setSexyScore(m.getSexyScore());
+                    dto.setPornScore(m.getPornScore());
+                    dto.setHentaiScore(m.getHentaiScore());
+                    dto.setTopLabel(m.getTopLabel());
+                    dto.setValidationMessage(m.getValidationMessage());
+                    
+                    return dto;
                 })
                 .collect(Collectors.toList());
     }
@@ -216,7 +255,39 @@ public class ChatService {
             } else {
                 log.warn("sendImageMessage called with null imageFile: conversationId={} senderId={}", conversationId, senderId);
             }
-            // User sender = userRepository.findById(senderId).orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
+
+            // Check image content using AI service
+            Boolean isSexy = null;
+            Double sexyScore = null;
+            Double pornScore = null;
+            Double hentaiScore = null;
+            String topLabel = null;
+            String validationMessage = null;
+            
+            try {
+                String base64 = java.util.Base64.getEncoder().encodeToString(imageFile.getBytes());
+                String dataUri = "data:" + (imageFile.getContentType() == null ? "image/png" : imageFile.getContentType()) + ";base64," + base64;
+                java.util.Map<String, Object> requestBody = new java.util.HashMap<>();
+                requestBody.put("image", dataUri);
+                
+                java.util.Map<String, Object> validationResult = aiClient.checkImageSexyBase64(requestBody);
+                log.info("Image validation result: {}", validationResult);
+                
+                if (validationResult != null) {
+                    isSexy = (Boolean) validationResult.get("is_sexy");
+                    sexyScore = validationResult.get("sexy_score") != null ? 
+                        ((Number) validationResult.get("sexy_score")).doubleValue() : null;
+                    pornScore = validationResult.get("porn_score") != null ? 
+                        ((Number) validationResult.get("porn_score")).doubleValue() : null;
+                    hentaiScore = validationResult.get("hentai_score") != null ? 
+                        ((Number) validationResult.get("hentai_score")).doubleValue() : null;
+                    topLabel = (String) validationResult.get("top_label");
+                    validationMessage = (String) validationResult.get("message");
+                }
+            } catch (Exception e) {
+                log.warn("Failed to validate image content, allowing send: {}", e.getMessage());
+                // Continue sending image even if validation fails
+            }
 
             // Upload image via user-service (base64) to reuse existing Cloudinary integration
             String base64 = java.util.Base64.getEncoder().encodeToString(imageFile.getBytes());
@@ -232,6 +303,15 @@ public class ChatService {
             m.setContent(""); // Empty content for image messages
             m.setMessageType("IMAGE");
             m.setImageUrl(imageUrl);
+            
+            // Save validation info to database
+            m.setIsSexy(isSexy);
+            m.setSexyScore(sexyScore);
+            m.setPornScore(pornScore);
+            m.setHentaiScore(hentaiScore);
+            m.setTopLabel(topLabel);
+            m.setValidationMessage(validationMessage);
+            
             Message saved = messageRepository.save(m);
 
             // Create DTO
@@ -241,20 +321,27 @@ public class ChatService {
         if (userDto != null) avatar = userDto.getAvatar();
         } catch (Exception ignored) {}
 
-        ChatMessageDTO dto = new ChatMessageDTO(
-            saved.getId(),
-            conversationId,
-            null,
-            senderId,
-            avatar,
-            saved.getContent(),
-            saved.getMessageType(),
-            saved.getImageUrl(),
-            null, // fileUrl
-            null, // fileName
-            null, // fileSize
-            saved.getCreatedAt()
-        );
+        ChatMessageDTO dto = new ChatMessageDTO();
+        dto.setId(saved.getId());
+        dto.setConversationId(conversationId);
+        dto.setGroupId(null);
+        dto.setSenderId(senderId);
+        dto.setSenderAvatar(avatar);
+        dto.setContent(saved.getContent());
+        dto.setMessageType(saved.getMessageType());
+        dto.setImageUrl(saved.getImageUrl());
+        dto.setFileUrl(null);
+        dto.setFileName(null);
+        dto.setFileSize(null);
+        dto.setCreatedAt(saved.getCreatedAt());
+        
+        // Set validation fields
+        dto.setIsSexy(isSexy);
+        dto.setSexyScore(sexyScore);
+        dto.setPornScore(pornScore);
+        dto.setHentaiScore(hentaiScore);
+        dto.setTopLabel(topLabel);
+        dto.setValidationMessage(validationMessage);
 
             // Publish to conversation topic
             messagingTemplate.convertAndSend("/topic/chat/" + conversationId, dto);
@@ -295,20 +382,19 @@ public class ChatService {
         if (userDto != null) avatar = userDto.getAvatar();
         } catch (Exception ignored) {}
 
-        ChatMessageDTO dto = new ChatMessageDTO(
-            saved.getId(),
-            conversationId,
-            null,
-            senderId,
-            avatar,
-            saved.getContent(),
-            saved.getMessageType(),
-            null, // imageUrl
-            saved.getFileUrl(),
-            saved.getFileName(),
-            saved.getFileSize(),
-            saved.getCreatedAt()
-        );
+        ChatMessageDTO dto = new ChatMessageDTO();
+        dto.setId(saved.getId());
+        dto.setConversationId(conversationId);
+        dto.setGroupId(null);
+        dto.setSenderId(senderId);
+        dto.setSenderAvatar(avatar);
+        dto.setContent(saved.getContent());
+        dto.setMessageType(saved.getMessageType());
+        dto.setImageUrl(null);
+        dto.setFileUrl(saved.getFileUrl());
+        dto.setFileName(saved.getFileName());
+        dto.setFileSize(saved.getFileSize());
+        dto.setCreatedAt(saved.getCreatedAt());
 
             // Publish to conversation topic
             messagingTemplate.convertAndSend("/topic/chat/" + conversationId, dto);
