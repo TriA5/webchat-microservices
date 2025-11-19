@@ -43,7 +43,8 @@ public class SecurityConfiguration {
                 corsConfig.setAllowedOrigins(Arrays.asList(
                     "http://localhost:3000",
                     "http://127.0.0.1:3000",
-                    "http://192.168.50.1:3000"
+                    "http://192.168.50.1:3000",
+                    "https://unpessimistically-unbewailed-christy.ngrok-free.dev"
                 ));
                 corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                 corsConfig.setAllowedHeaders(Arrays.asList("*"));

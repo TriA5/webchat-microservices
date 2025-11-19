@@ -64,9 +64,9 @@ public class SecurityConfiguration {
             "http://localhost:3000",
             "http://127.0.0.1:3000",
             "http://192.168.50.1:3000",
-            "http://localhost:3001"
+            "http://localhost:3001",
             // "https://59q4wqb1-3000.asse.devtunnels.ms",
-            // "https://unpessimistically-unbewailed-christy.ngrok-free.dev"
+            "https://unpessimistically-unbewailed-christy.ngrok-free.dev"
         ));
         corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         corsConfig.setAllowedHeaders(Arrays.asList("*"));
