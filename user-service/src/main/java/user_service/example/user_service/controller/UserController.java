@@ -15,6 +15,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.core.Authentication;
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -195,5 +201,85 @@ public class UserController {
             return ResponseEntity.badRequest().build();
         }
     }
-    //Tổng lượng user tăng trưởng theo tháng
+    
+    // Số lượng người dùng tăng trưởng so với tháng trước
+    @GetMapping("/user-growth")
+    public ResponseEntity<?> getUserGrowth() {
+        try {
+            YearMonth currentMonth = YearMonth.now();
+            YearMonth lastMonth = currentMonth.minusMonths(1);
+            
+            Long currentMonthCount = userRepository.countUsersByMonth(
+                currentMonth.getYear(), 
+                currentMonth.getMonthValue()
+            );
+            Long lastMonthCount = userRepository.countUsersByMonth(
+                lastMonth.getYear(), 
+                lastMonth.getMonthValue()
+            );
+            
+            long growth = currentMonthCount - lastMonthCount;
+            double growthPercentage = lastMonthCount > 0 
+                ? ((double) growth / lastMonthCount) * 100 
+                : 0;
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("currentMonth", currentMonthCount);
+            result.put("lastMonth", lastMonthCount);
+            result.put("growth", growth);
+            result.put("growthPercentage", Math.round(growthPercentage * 100.0) / 100.0);
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    // Số lượng người dùng 6 tháng gần đây
+    @GetMapping("/users-last-6-months")
+    public ResponseEntity<?> getUsersLast6Months() {
+        try {
+            LocalDateTime sixMonthsAgo = LocalDateTime.now().minusMonths(6).withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
+            List<Object[]> rawData = userRepository.countUsersByLast6Months(sixMonthsAgo);
+            
+            // Tạo map để lưu kết quả theo tháng
+            Map<String, Long> monthlyData = new HashMap<>();
+            
+            // Khởi tạo 6 tháng gần nhất với giá trị 0
+            YearMonth current = YearMonth.now();
+            for (int i = 0; i < 6; i++) {
+                YearMonth month = current.minusMonths(i);
+                String key = month.getYear() + "-" + String.format("%02d", month.getMonthValue());
+                monthlyData.put(key, 0L);
+            }
+            
+            // Điền dữ liệu thực tế
+            for (Object[] row : rawData) {
+                int year = ((Number) row[0]).intValue();
+                int month = ((Number) row[1]).intValue();
+                long count = ((Number) row[2]).longValue();
+                String key = year + "-" + String.format("%02d", month);
+                monthlyData.put(key, count);
+            }
+            
+            // Chuyển sang list có thứ tự
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (int i = 5; i >= 0; i--) {
+                YearMonth month = current.minusMonths(i);
+                String key = month.getYear() + "-" + String.format("%02d", month.getMonthValue());
+                
+                Map<String, Object> item = new HashMap<>();
+                item.put("month", key);
+                item.put("monthName", "Tháng " + month.getMonthValue());
+                item.put("count", monthlyData.get(key));
+                result.add(item);
+            }
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
 }

@@ -50,5 +50,19 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
           AND c.id = :conversationId
     """)
     List<Message> findFilesByConversation(@Param("conversationId") UUID conversationId);
+    
+    // Đếm tất cả tin nhắn trong ngày hôm nay
+    @Query("SELECT COUNT(m) FROM Message m WHERE DATE(m.createdAt) = CURRENT_DATE")
+    Long countMessagesToday();
+    
+    // Đếm tin nhắn theo từng ngày trong tuần (7 ngày gần nhất)
+    @Query("""
+        SELECT DAYOFWEEK(m.createdAt) as dayOfWeek, COUNT(m) as count
+        FROM Message m
+        WHERE m.createdAt >= :startOfWeek
+        GROUP BY DAYOFWEEK(m.createdAt)
+        ORDER BY DAYOFWEEK(m.createdAt)
+    """)
+    List<Object[]> countMessagesByDayOfWeek(@Param("startOfWeek") LocalDateTime startOfWeek);
 }
 

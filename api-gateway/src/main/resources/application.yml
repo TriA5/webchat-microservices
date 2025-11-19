@@ -66,6 +66,14 @@ spring:
             - Path=/api/ws/**
           filters:
             - StripPrefix=1
+
+        - id: chat-statistics
+          uri: lb://chat-service
+          predicates:
+            - Path=/api/statistics/**
+          filters:
+            - StripPrefix=1
+
         # Ai
         - id: ai-service
           uri: lb://ai-service
@@ -219,6 +227,13 @@ spring:
           uri: lb://chat-service
           predicates:
             - Path=/api/ws/**
+          filters:
+            - StripPrefix=1
+
+        - id: chat-statistics
+          uri: lb://chat-service
+          predicates:
+            - Path=/api/statistics/**
           filters:
             - StripPrefix=1
         # Ai

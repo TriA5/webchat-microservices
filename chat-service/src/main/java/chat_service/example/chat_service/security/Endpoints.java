@@ -11,6 +11,7 @@ public class Endpoints {
         "/users/search/findByIdUser?IdUser={IdUser}",
          "/groups/**",
          "/chat/download-file",
+         "/statistics/**",
          //  "/group-members/**",
         // "/group-conversations/**",
     };
