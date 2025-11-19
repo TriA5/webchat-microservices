@@ -17,8 +17,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.multipart.MultipartFile;
 
 import poster_service.example.poster_service.client.UploadClient;
+import poster_service.example.poster_service.client.AiClient;
 import poster_service.example.poster_service.util.Base64ToMultipartFileConverter;
 import poster_service.example.poster_service.entity.ImagePoster;
+import poster_service.example.poster_service.exception.InappropriateContentException;
+import java.util.Map;
 import poster_service.example.poster_service.entity.Poster;
 import poster_service.example.poster_service.entity.PrivacyStatusPoster;
 import poster_service.example.poster_service.entity.VideoPoster;
@@ -63,6 +66,9 @@ private poster_service.example.poster_service.client.FriendshipClient friendship
 
 @Autowired
 private UploadClient uploadClient;
+
+@Autowired
+private AiClient aiClient;
 
 private final ObjectMapper objectMapper;
 
@@ -132,6 +138,17 @@ try {
         for (int i = 0; i < imageList.size(); i++) {
             String item = imageList.get(i);
             if (item != null && item.startsWith("data:")) {
+                // 🔍 Kiểm tra ảnh có nội dung nhạy cảm TRƯỚC KHI upload
+                log.info("🔍 Checking image {} for inappropriate content...", i);
+                try {
+                    validateImageContent(item);
+                } catch (InappropriateContentException e) {
+                    log.error("❌ Image {} contains inappropriate content: {}", i, e.getMessage());
+                    // Xóa poster đã tạo nếu phát hiện ảnh không phù hợp
+                    posterRepository.delete(newPoster);
+                    throw e;
+                }
+                
                 var body = java.util.Map.of("name", "poster_" + newPoster.getIdPoster() + "_" + i, "data", item);
                 String imageUrl = null;
                 try {
@@ -206,6 +223,10 @@ try {
 
     log.info("🎉 Poster created successfully!");
     return ResponseEntity.ok("✅ Tạo poster thành công!");
+} catch (InappropriateContentException e) {
+    // Xử lý riêng cho ảnh nhạy cảm
+    log.error("❌ Inappropriate content detected: {}", e.getMessage());
+    return ResponseEntity.badRequest().body("❌ " + e.getMessage());
 } catch (RuntimeException e) {
     log.error("❌ Runtime error: {}", e.getMessage(), e);
     return ResponseEntity.badRequest().body("❌ " + e.getMessage());
@@ -531,5 +552,87 @@ try {
     log.error("Error calling friendship-service: {}", e.getMessage());
     return false;
 }
+}
+
+/**
+ * Kiểm tra ảnh có chứa nội dung nhạy cảm (sexy/porn/hentai) hay không
+ * @param base64Image Ảnh dạng base64
+ * @throws InappropriateContentException nếu phát hiện nội dung không phù hợp
+ */
+private void validateImageContent(String base64Image) {
+    try {
+        log.info("🔍 Calling AI service to check image content...");
+        
+        // Loại bỏ prefix "data:image/...;base64," nếu có
+        String cleanBase64 = base64Image;
+        if (base64Image.contains(",")) {
+            cleanBase64 = base64Image.substring(base64Image.indexOf(",") + 1);
+        }
+        
+        // Gọi AI service để kiểm tra - QUAN TRỌNG: field phải là "image" không phải "data"
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("image", cleanBase64);
+        
+        log.info("🔍 Sending request to AI service with image data length: {}", cleanBase64.length());
+        Map<String, Object> response = aiClient.checkImageSexyBase64(body);
+        
+        log.info("🤖 AI Response: {}", response);
+        
+        // Kiểm tra kết quả
+        Boolean isSexy = (Boolean) response.get("is_sexy");
+        
+        if (isSexy != null && isSexy) {
+            // Lấy điểm số các loại nội dung
+            Double pornScore = getDoubleValue(response.get("porn_score"));
+            Double sexyScore = getDoubleValue(response.get("sexy_score"));
+            Double hentaiScore = getDoubleValue(response.get("hentai_score"));
+            Double confidence = getDoubleValue(response.get("confidence"));
+            
+            // Xác định loại nội dung có điểm cao nhất
+            String contentType;
+            double maxScore;
+            
+            if (pornScore > sexyScore && pornScore > hentaiScore) {
+                contentType = "porn";
+                maxScore = pornScore;
+            } else if (hentaiScore > sexyScore && hentaiScore > pornScore) {
+                contentType = "hentai";
+                maxScore = hentaiScore;
+            } else {
+                contentType = "sexy";
+                maxScore = sexyScore;
+            }
+            
+            log.error("❌ Inappropriate content detected - Type: {}, Score: {}, Confidence: {}", 
+                     contentType, maxScore, confidence);
+            
+            throw new InappropriateContentException(contentType, confidence != null ? confidence : maxScore);
+        }
+        
+        log.info("✅ Image content is appropriate");
+        
+    } catch (InappropriateContentException e) {
+        throw e; // Re-throw để xử lý ở layer trên
+    } catch (Exception e) {
+        log.error("⚠️ Failed to check image content, allowing by default: {}", e.getMessage());
+        // Nếu service AI không hoạt động, cho phép upload (hoặc có thể reject tùy yêu cầu)
+    }
+}
+
+/**
+ * Helper method để convert Object sang Double
+ */
+private Double getDoubleValue(Object value) {
+    if (value == null) return 0.0;
+    if (value instanceof Double) return (Double) value;
+    if (value instanceof Number) return ((Number) value).doubleValue();
+    if (value instanceof String) {
+        try {
+            return Double.parseDouble((String) value);
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
+    }
+    return 0.0;
 }
 }
