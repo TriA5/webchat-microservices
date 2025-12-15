@@ -3,6 +3,7 @@ package poster_service.example.poster_service.service.poster;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
@@ -123,6 +124,11 @@ try {
     // Create poster
     Poster poster = new Poster();
     poster.setContent(posterJson.get("content").asText());
+    //Check toxic content
+    if(isToxic(poster.getContent())) {
+        log.error("❌ Poster content is toxic");
+        return ResponseEntity.badRequest().body("❌ Nội dung poster chứa ngôn từ không phù hợp");
+    }
     poster.setUser(userDto.getIdUser());
     poster.setPrivacyStatus(privacyStatus);
     poster.setCreatedAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")));
@@ -635,4 +641,24 @@ private Double getDoubleValue(Object value) {
     }
     return 0.0;
 }
+private boolean isToxic(String content) {
+        try {
+            Map<String, String> body = new HashMap<>();
+            body.put("text", content);
+            
+            Map<String, Object> response = aiClient.checkToxic(body);
+            
+            // Kiểm tra kết quả từ AI service
+            if (response != null && response.containsKey("toxic")) {
+                return (Boolean) response.get("toxic");
+            }
+            
+            // Nếu không có response hoặc lỗi, mặc định cho phép gửi tin nhắn
+            return false;
+        } catch (Exception e) {
+            log.warn("Không thể kiểm tra toxic, cho phép tin nhắn: " + e.getMessage());
+            // Nếu AI service không khả dụng, vẫn cho phép gửi tin nhắn
+            return false;
+        }
+    }
 }

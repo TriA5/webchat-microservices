@@ -26,10 +26,14 @@ public class HomeController {
                 request -> ServerResponse.ok()
                         .contentType(MediaType.TEXT_HTML)
                         .body(fromResource(indexHtml)))
-                .andRoute(GET("/home"), 
+            .andRoute(GET("/home"), 
                 request -> ServerResponse.ok()
-                    .contentType(MediaType.TEXT_HTML)
-                    .body(fromResource(indexHtml)))
+                        .contentType(MediaType.TEXT_HTML)
+                        .body(fromResource(indexHtml)))
+            .andRoute(GET("/forgot-password"), 
+                request -> ServerResponse.ok()
+                        .contentType(MediaType.TEXT_HTML)
+                        .body(fromResource(indexHtml)))
             .andRoute(GET("/register"), 
                 request -> ServerResponse.ok()
                     .contentType(MediaType.TEXT_HTML)

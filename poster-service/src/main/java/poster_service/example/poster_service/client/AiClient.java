@@ -11,4 +11,8 @@ public interface AiClient {
     // Gọi API kiểm tra ảnh sexy/porn/hentai (Base64)
     @PostMapping("/huggingface/is-image-sexy-base64")
     Map<String, Object> checkImageSexyBase64(@RequestBody Map<String, Object> body);
+
+    // Gọi API kiểm tra toxic
+    @PostMapping("/gemini/check-toxic")
+    Map<String, Object> checkToxic(@RequestBody Map<String, String> body);
 }

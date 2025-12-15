@@ -50,8 +50,7 @@ public class GeminiService {
     public String askGemini(String prompt) {
         try {
             // String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=" + apiKey;
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=" + apiKey;
-
+            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey;
             
             // Tạo request body
             Map<String, Object> requestBody = Map.of(
